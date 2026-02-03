@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 
 export type ProcessStatus = 'idle' | 'running' | 'paused' | 'finished' | 'error'
+export type ScanPhase = 'idle' | 'enabling' | 'exposing' | 'reconstructing' | 'finishing' | 'error'
 
 export const useSimulatorStore = defineStore('simulator', () => {
     // Global States
@@ -35,12 +36,15 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const isMoving = ref(false)
 
     // Scan States
+    const scanPhase = ref<ScanPhase>('idle')
     const scanStatus = ref<'idle' | 'ready' | 'scanning' | 'pausing' | 'error'>('idle')
     const currentSlice = ref(0)
     const totalSlices = ref(500)
     const exposureActive = ref(false)
+    let scanInterval: any = null
 
-    // Actions
+    // --- ACTIONS ---
+
     const toggleLaser = () => {
         laserOn.value = !laserOn.value
     }
@@ -48,24 +52,23 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const triggerEStop = () => {
         eStopActive.value = true
         scanStatus.value = 'error'
+        scanPhase.value = 'error'
         isMoving.value = false
         exposureActive.value = false
         if (warmUpStatus.value === 'running') failWarmUp()
         if (airCalStatus.value === 'running') failAirCal()
+        if (scanInterval) clearInterval(scanInterval)
     }
 
     const resetEStop = () => {
         eStopActive.value = false
-        if (scanStatus.value === 'error') scanStatus.value = 'idle'
+        if (scanStatus.value === 'error') {
+            scanStatus.value = 'idle'
+            scanPhase.value = 'idle'
+        }
     }
 
     // Warm-up Actions
-    const startWarmUp = () => {
-        if (warmUpStatus.value === 'running' || warmUpStatus.value === 'finished') return
-        warmUpStatus.value = 'running'
-        runWarmUp()
-    }
-
     const runWarmUp = () => {
         warmUpTimer = setInterval(() => {
             if (warmUpStatus.value !== 'running') {
@@ -79,6 +82,12 @@ export const useSimulatorStore = defineStore('simulator', () => {
                 warmUpStatus.value = 'finished'
             }
         }, 100)
+    }
+
+    const startWarmUp = () => {
+        if (warmUpStatus.value === 'running' || warmUpStatus.value === 'finished') return
+        warmUpStatus.value = 'running'
+        runWarmUp()
     }
 
     const pauseWarmUp = () => {
@@ -104,16 +113,10 @@ export const useSimulatorStore = defineStore('simulator', () => {
         warmUpStatus.value = 'idle'
         warmUpProgress.value = 0
         currentHeatCapacity.value = 0
-        clearInterval(warmUpTimer)
+        if (warmUpTimer) clearInterval(warmUpTimer)
     }
 
     // Air Calibration Actions
-    const startAirCal = () => {
-        if (airCalStatus.value === 'running' || airCalStatus.value === 'finished') return
-        airCalStatus.value = 'running'
-        runAirCal()
-    }
-
     const runAirCal = () => {
         const totalCombinations = 24
         airCalTimer = setInterval(() => {
@@ -129,6 +132,12 @@ export const useSimulatorStore = defineStore('simulator', () => {
                 completedAirCalCombinations.value = totalCombinations
             }
         }, 100)
+    }
+
+    const startAirCal = () => {
+        if (airCalStatus.value === 'running' || airCalStatus.value === 'finished') return
+        airCalStatus.value = 'running'
+        runAirCal()
     }
 
     const pauseAirCal = () => {
@@ -154,7 +163,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         airCalStatus.value = 'idle'
         airCalProgress.value = 0
         completedAirCalCombinations.value = 0
-        clearInterval(airCalTimer)
+        if (airCalTimer) clearInterval(airCalTimer)
     }
 
     const clearAirCalRecords = () => {
@@ -169,24 +178,76 @@ export const useSimulatorStore = defineStore('simulator', () => {
         }, 500)
     }
 
-    const startScan = () => {
-        if (eStopActive.value) return
-        scanStatus.value = 'scanning'
-        exposureActive.value = true
-        currentSlice.value = 0
-        const interval = setInterval(() => {
-            if (scanStatus.value !== 'scanning') {
-                clearInterval(interval)
-                exposureActive.value = false
-                return
-            }
-            currentSlice.value += 1
-            if (currentSlice.value >= totalSlices.value) {
-                clearInterval(interval)
+    // Scan Actions
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
+
+    const startScan = async () => {
+        // Use type-neutral check to avoid TS inference issues in async scope
+        const currentP: any = scanPhase.value;
+        if (eStopActive.value || currentP !== 'idle') return
+
+        try {
+            // Phase 1: Enabling
+            scanPhase.value = 'enabling'
+            scanStatus.value = 'scanning'
+            await delay(1000)
+            if ((scanPhase.value as any) === 'error') return
+
+            // Phase 2: Exposing
+            scanPhase.value = 'exposing'
+            exposureActive.value = true
+            await nextTick()
+
+            await new Promise<void>((resolve, reject) => {
+                currentSlice.value = 0
+                scanInterval = setInterval(() => {
+                    const p: any = scanPhase.value;
+                    if (p === 'error') {
+                        clearInterval(scanInterval)
+                        exposureActive.value = false
+                        reject(new Error('Scan Aborted'))
+                        return
+                    }
+                    if (scanStatus.value === 'pausing') return
+
+                    currentSlice.value += 10; // Faster simulation
+                    if (currentSlice.value >= totalSlices.value) {
+                        clearInterval(scanInterval)
+                        exposureActive.value = false
+                        resolve()
+                    }
+                }, 50)
+            })
+
+            // Phase 3: Reconstructing
+            scanPhase.value = 'reconstructing'
+            await delay(1500)
+            if ((scanPhase.value as any) === 'error') return
+
+            // Phase 4: Finishing
+            scanPhase.value = 'finishing'
+            await delay(800)
+            if ((scanPhase.value as any) === 'error') return
+
+            scanPhase.value = 'idle'
+            scanStatus.value = 'idle'
+
+        } catch (e) {
+            console.error(e)
+            // Still reset state if error was handled
+            if ((scanPhase.value as any) !== 'error') {
+                scanPhase.value = 'idle'
                 scanStatus.value = 'idle'
-                exposureActive.value = false
             }
-        }, 50)
+        }
+    }
+
+    const failScan = (phase: ScanPhase) => {
+        scanPhase.value = 'error'
+        scanStatus.value = 'error'
+        exposureActive.value = false
+        if (scanInterval) clearInterval(scanInterval)
+        triggerEStop()
     }
 
     return {
@@ -194,12 +255,12 @@ export const useSimulatorStore = defineStore('simulator', () => {
         warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
-        scanStatus, currentSlice, totalSlices, exposureActive,
+        scanStatus, scanPhase, currentSlice, totalSlices, exposureActive,
         toggleLaser, triggerEStop, resetEStop,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, startScan
+        moveGantry, startScan, failScan
     }
 }, {
-    persist: true
+    persist: false // DISABLE PERSISTENCE TEMPORARILY
 })

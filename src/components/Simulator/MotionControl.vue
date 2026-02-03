@@ -8,6 +8,17 @@ const moveStep = (axis: 'gantry' | 'v' | 'h', amount: number) => {
   if (axis === 'v') store.tableVertical += amount;
   if (axis === 'h') store.tableHorizontal += amount;
 };
+const resetToZero = () => {
+  store.gantryPosition = 0;
+  store.tableVertical = 0;
+  store.tableHorizontal = 0;
+};
+
+const simulateFault = (axis: string) => {
+  store.triggerEStop();
+  console.log(`Simulating fault on: ${axis}`);
+  // In a real scenario, this could set a specific error code in the store
+};
 </script>
 
 <template>
@@ -103,13 +114,52 @@ const moveStep = (axis: 'gantry' | 'v' | 'h', amount: number) => {
         <div class="visualizer-label">SCANNER TRAVEL VIEW</div>
       </div>
 
-      <div class="quick-positions pt-4">
-        <span class="label mb-2">PRESETS</span>
-        <div class="d-flex gap-2">
-          <v-btn size="small" variant="outlined" @click="store.tableHorizontal = 0; store.tableVertical = 150">HOME</v-btn>
-          <v-btn size="small" variant="outlined" class="mx-2" @click="store.tableHorizontal = 1000; store.tableVertical = 150">SCAN CENTER</v-btn>
-          <v-btn size="small" variant="outlined" @click="store.tableHorizontal = 1800">PARK</v-btn>
-        </div>
+      <div class="quick-positions pt-4 d-flex gap-2">
+        <v-btn 
+          flex
+          color="secondary" 
+          variant="outlined" 
+          prepend-icon="mdi-restore" 
+          @click="resetToZero"
+          class="flex-grow-1"
+        >
+          系统归零
+        </v-btn>
+
+        <v-menu location="top">
+          <template v-slot:activator="{ props }">
+            <v-btn
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-alert-circle"
+              v-bind="props"
+              class="flex-grow-1"
+            >
+              故障模拟
+            </v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-subheader>选择故障轴</v-list-subheader>
+            <v-list-item @click="simulateFault('Gantry Tilt')">
+              <template v-slot:prepend>
+                <v-icon size="small">mdi-rotate-3d-variant</v-icon>
+              </template>
+              <v-list-item-title>机架倾斜故障 (Gantry)</v-list-item-title>
+            </v-list-item>
+            <v-list-item @click="simulateFault('Table Vertical')">
+              <template v-slot:prepend>
+                <v-icon size="small">mdi-arrow-up-down</v-icon>
+              </template>
+              <v-list-item-title>升降运动故障 (Vertical)</v-list-item-title>
+            </v-list-item>
+            <v-list-item @click="simulateFault('Scanner Travel')">
+              <template v-slot:prepend>
+                <v-icon size="small">mdi-arrow-left-right</v-icon>
+              </template>
+              <v-list-item-title>水平进出故障 (Travel)</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
       </div>
     </v-card-text>
   </v-card>

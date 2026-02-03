@@ -59,37 +59,66 @@ const historyData = [
             class="status-banner mb-6"
             density="compact"
           >
-            <div class="d-flex align-center">
-              <span class="label mr-3">CURRENT STATE:</span>
-              <span class="value">{{ store.scanStatus.toUpperCase() }}</span>
+            <div class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center">
+                <span class="label mr-3">CURRENT STATE:</span>
+                <span class="value">{{ (store.scanStatus || 'idle').toUpperCase() }}</span>
+              </div>
+              <v-chip v-if="store.scanPhase && store.scanPhase !== 'idle'" size="small" :color="scanStatusColor" variant="flat">
+                PHASE: {{ store.scanPhase.toUpperCase() }}
+              </v-chip>
             </div>
           </v-alert>
 
-          <div class="action-buttons mb-6">
+          <div class="action-buttons mb-6 d-flex flex-wrap gap-2">
             <v-btn 
               color="primary" 
               size="large" 
               :disabled="store.scanStatus === 'scanning' || store.eStopActive"
               @click="store.startScan"
               prepend-icon="mdi-play"
-              class="mr-3"
+              class="flex-grow-1"
             >
               START SCAN
             </v-btn>
-            <v-btn 
-              size="large" 
-              variant="outlined"
-              :disabled="store.scanStatus !== 'scanning'"
-              prepend-icon="mdi-pause"
-              class="mr-3"
-            >
-              PAUSE
-            </v-btn>
+
+            <v-menu location="top">
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  color="error"
+                  variant="tonal"
+                  size="large"
+                  prepend-icon="mdi-alert-circle"
+                  v-bind="props"
+                  :disabled="store.scanStatus !== 'scanning'"
+                  class="flex-grow-1"
+                >
+                  FAULT SIM
+                </v-btn>
+              </template>
+              <v-list density="compact">
+                <v-list-subheader>SIMULATE SCAN FAULT</v-list-subheader>
+                <v-list-item @click="store.failScan('enabling')">
+                  <v-list-item-title>使能故障 (Enable Fault)</v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="store.failScan('exposing')">
+                  <v-list-item-title>曝光故障 (Exposure Fault)</v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="store.failScan('reconstructing')">
+                  <v-list-item-title>出图故障 (Recon Fault)</v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="store.failScan('finishing')">
+                  <v-list-item-title>结束故障 (Finish Fault)</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
+
             <v-btn 
               color="error" 
               size="large" 
               @click="store.triggerEStop"
               prepend-icon="mdi-stop"
+              class="flex-grow-1"
             >
               STOP / E-STOP
             </v-btn>
