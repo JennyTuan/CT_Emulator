@@ -8,8 +8,14 @@ const store = useSimulatorStore();
 const currentStep = ref(1);
 
 const warmUpDescription = computed(() => {
-  if (store.isWarmingUp) return `In Progress (${store.warmUpProgress}%)`;
+  if (store.isWarmingUp) return `${store.warmUpProgress}%`;
   if (store.warmUpProgress === 100) return 'Completed';
+  return 'Pending';
+});
+
+const airCalDescription = computed(() => {
+  if (store.isAirCalibrating) return `${store.airCalProgress}%`;
+  if (store.airCalProgress === 100) return 'Completed';
   return 'Pending';
 });
 // 测试
@@ -36,11 +42,30 @@ const maintenanceTasks = [
         <Steps :current="currentStep" size="small" class="custom-steps">
           <Steps.Step title="Hardware Init" description="Completed" />
           <Steps.Step title="Tube Warm-up" :description="warmUpDescription" />
-          <Steps.Step title="Air Cal" :description="currentStep > 1 ? 'Completed' : 'Pending'" />
+          <Steps.Step title="Air Cal" :description="airCalDescription" />
           <Steps.Step title="Ready" :description="currentStep === 3 ? 'Ready' : 'Pending'" />
         </Steps>
+
+        <div class="active-task-progress">
+          <div v-if="store.isWarmingUp || store.warmUpProgress > 0 && store.warmUpProgress < 100">
+            <div class="progress-info">
+              <span>Tube Warm-up</span>
+              <span>{{ store.warmUpProgress }}%</span>
+            </div>
+            <Progress :percent="store.warmUpProgress" size="small" :show-info="false" status="active" />
+          </div>
+          <div v-if="store.isAirCalibrating || store.airCalProgress > 0 && store.airCalProgress < 100" style="margin-top: 12px;">
+            <div class="progress-info">
+              <span>Air Calibration</span>
+              <span>{{ store.airCalProgress }}%</span>
+            </div>
+            <Progress :percent="store.airCalProgress" size="small" :show-info="false" status="active" stroke-color="#52c41a" />
+          </div>
+        </div>
+
         <div class="step-actions">
-          <Button type="primary" size="small" @click="currentStep++">NEXT STEP</Button>
+          <Button type="primary" size="small" @click="store.startWarmUp()" :disabled="store.isWarmingUp">START WARM-UP</Button>
+          <Button type="primary" size="small" style="margin-left: 8px" @click="store.startAirCal()" :disabled="store.isAirCalibrating">START AIR CAL</Button>
           <Button size="small" style="margin-left: 8px" @click="currentStep = 0">RESET</Button>
         </div>
       </div>
@@ -106,6 +131,21 @@ const maintenanceTasks = [
 
 .custom-steps {
   margin-bottom: 24px;
+}
+
+.active-task-progress {
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.65);
 }
 
 :deep(.ant-steps-item-title) {

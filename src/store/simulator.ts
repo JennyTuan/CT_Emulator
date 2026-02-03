@@ -7,6 +7,8 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const eStopActive = ref(false)
     const warmUpProgress = ref(0)
     const isWarmingUp = ref(false)
+    const airCalProgress = ref(0)
+    const isAirCalibrating = ref(false)
 
     // Motion States
     const gantryPosition = ref(0)
@@ -52,6 +54,19 @@ export const useSimulatorStore = defineStore('simulator', () => {
         }, 100)
     }
 
+    const startAirCal = () => {
+        if (isAirCalibrating.value) return
+        isAirCalibrating.value = true
+        airCalProgress.value = 0
+        const interval = setInterval(() => {
+            airCalProgress.value += 4
+            if (airCalProgress.value >= 100) {
+                clearInterval(interval)
+                isAirCalibrating.value = false
+            }
+        }, 150)
+    }
+
     const moveGantry = (pos: number) => {
         isMoving.value = true
         setTimeout(() => {
@@ -81,9 +96,9 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
 
     return {
-        laserOn, eStopActive, warmUpProgress, isWarmingUp,
+        laserOn, eStopActive, warmUpProgress, isWarmingUp, airCalProgress, isAirCalibrating,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
         scanStatus, currentSlice, totalSlices, exposureActive,
-        toggleLaser, triggerEStop, resetEStop, startWarmUp, moveGantry, startScan
+        toggleLaser, triggerEStop, resetEStop, startWarmUp, startAirCal, moveGantry, startScan
     }
 })
