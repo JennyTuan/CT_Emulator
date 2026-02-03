@@ -12,6 +12,7 @@ const warmUpDescription = computed(() => {
         return 'Completed';
     return 'Pending';
 });
+// 测试
 const maintenanceTasks = [
     { title: 'System Calibration', status: 'success', lastRun: '2 hours ago' },
     { title: 'Tube Heat Load Check', status: 'warning', lastRun: '2 days ago' },
