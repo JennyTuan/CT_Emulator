@@ -4,23 +4,25 @@ import { computed } from 'vue';
 
 const store = useSimulatorStore();
 
-// Safety: ensure scanPhase is initialized
-if (!store.scanPhase) {
-  (store.scanPhase as any) = 'idle';
-}
-
 const progressPercent = computed(() => {
+  if (!store.totalSlices) return 0;
   return Math.round((store.currentSlice / store.totalSlices) * 100);
 });
 
 const scanStatusColor = computed(() => {
-  switch (store.scanStatus) {
+  const status = store.scanStatus || 'idle';
+  switch (status) {
     case 'scanning': return 'success';
     case 'error': return 'error';
     case 'ready': return 'primary';
     default: return 'grey';
   }
 });
+
+const handleStart = () => {
+  console.log('Start Clicked');
+  store.prepareScan();
+}
 
 const historyData = [
   { key: '1', time: '10:45:12', protocol: 'Chest Routine', patientId: 'PID-2024-001', dose: '12.4 mGy', status: 'Completed' },
@@ -34,13 +36,21 @@ const historyData = [
     <v-card-title class="card-title-container pa-4">
       <v-icon color="primary" class="mr-2">mdi-barcode-scan</v-icon>
       <span>SCAN STATE MACHINE</span>
+      <v-spacer></v-spacer>
+      <v-btn size="x-small" color="error" variant="text" @click="store.resetSystem">FORCE RESET SYSTEM</v-btn>
     </v-card-title>
     
     <v-card-text class="pa-4">
       <div class="scan-main">
-        <div class="scan-visualizer" :class="{ 'is-scanning': store.exposureActive }">
+          <div class="scan-visualizer" :class="{ 'is-scanning': store.exposureActive, 'is-reconstructing': store.scanPhase === 'reconstructing' }">
           <div class="exposure-indicator" v-if="store.exposureActive">
             EXPOSURE ACTIVE
+          </div>
+          <div class="recon-indicator" v-if="store.scanPhase === 'reconstructing'">
+            RECONSTRUCTING...
+          </div>
+          <div class="finish-indicator" v-if="store.scanPhase === 'finishing'">
+            FINISHING...
           </div>
           <div class="slice-counter">
             <span class="current">{{ store.currentSlice }}</span>
@@ -82,7 +92,7 @@ const historyData = [
               color="primary" 
               size="large" 
               :disabled="(store.scanPhase !== 'idle' && store.scanPhase !== 'error' && !!store.scanPhase) && !store.eStopActive"
-              @click="store.prepareScan"
+              @click="handleStart"
               prepend-icon="mdi-play-circle-outline"
               class="flex-grow-1"
             >
@@ -114,9 +124,22 @@ const historyData = [
             >
               曝 光 (EXPOSURE)
             </v-btn>
+
+            <!-- 4. RECONSTRUCTION -->
+            <v-btn 
+              color="teal" 
+              size="large" 
+              :disabled="store.scanPhase !== 'exposed' || store.eStopActive"
+              @click="store.startRecon"
+              :loading="store.scanPhase === 'reconstructing'"
+              prepend-icon="mdi-image-filter-hdr"
+              class="flex-grow-1"
+            >
+              出 图 (RECON)
+            </v-btn>
           </div>
 
-          <!-- Row 2: System Safety & Testing -->
+          <!-- Row 2: Safety -->
           <div class="action-buttons mb-6 d-flex gap-2">
             <v-menu location="top">
               <template v-slot:activator="{ props }">
@@ -126,14 +149,13 @@ const historyData = [
                   size="large"
                   prepend-icon="mdi-bug"
                   v-bind="props"
-                  :disabled="store.scanPhase === 'idle' || store.scanPhase === 'error' || !store.scanPhase"
+                  :disabled="!store.scanPhase || store.scanPhase === 'idle' || store.scanPhase === 'error'"
                   class="flex-grow-1"
                 >
                   故障模拟 (FAULT SIM)
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-subheader>注入随机故障</v-list-subheader>
                 <v-list-item @click="store.failScan">
                   <template v-slot:prepend><v-icon color="error">mdi-flash-off</v-icon></template>
                   <v-list-item-title>模拟硬件链路故障</v-list-item-title>
@@ -156,24 +178,6 @@ const historyData = [
             </v-btn>
           </div>
 
-          <div class="scan-params">
-            <div class="param-item">
-              <span class="label">KV</span>
-              <span class="value">120</span>
-            </div>
-            <div class="param-item">
-              <span class="label">mA</span>
-              <span class="value">250</span>
-            </div>
-            <div class="param-item">
-              <span class="label">Pitch</span>
-              <span class="value">0.98</span>
-            </div>
-            <div class="param-item">
-              <span class="label">Rot. Time</span>
-              <span class="value">0.5s</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -249,16 +253,39 @@ const historyData = [
   animation: pulse-green 2s infinite;
 }
 
-.exposure-indicator {
+.exposure-indicator, .recon-indicator, .finish-indicator {
   position: absolute;
   top: -10px;
-  background: rgb(var(--v-theme-error));
   color: #fff;
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: bold;
   z-index: 1;
+}
+
+.exposure-indicator {
+  background: rgb(var(--v-theme-error));
+}
+
+.recon-indicator {
+  background: rgb(var(--v-theme-primary));
+  animation: pulse-blue 1.5s infinite;
+}
+
+.finish-indicator {
+  background: rgb(var(--v-theme-success));
+}
+
+.scan-visualizer.is-reconstructing {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 20px rgba(var(--v-theme-primary), 0.2);
+}
+
+@keyframes pulse-blue {
+  0% { box-shadow: 0 0 0 0 rgba(var(--v-theme-primary), 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(var(--v-theme-primary), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-primary), 0); }
 }
 
 .slice-counter {
@@ -312,42 +339,6 @@ const historyData = [
 .action-buttons {
   display: flex;
   gap: 12px;
-}
-
-.scan-params {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.param-item {
-  background: rgba(var(--v-theme-on-surface), 0.03);
-  padding: 8px;
-  border-radius: 4px;
-  text-align: center;
-}
-
-.param-item .label {
-  display: block;
-  font-size: 0.7rem;
-  opacity: 0.5;
-  margin-bottom: 4px;
-}
-
-.param-item .value {
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.history-title {
-  font-size: 0.8rem;
-  opacity: 0.5;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.history-table {
-  background: transparent !important;
 }
 
 .pid-code {

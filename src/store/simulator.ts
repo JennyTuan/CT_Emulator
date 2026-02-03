@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, nextTick } from 'vue'
 
 export type ProcessStatus = 'idle' | 'running' | 'paused' | 'finished' | 'error'
-export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'exposing' | 'reconstructing' | 'finishing' | 'error'
+export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'exposing' | 'exposed' | 'reconstructing' | 'finishing' | 'error'
 
 export const useSimulatorStore = defineStore('simulator', () => {
     // --- GLOBAL STATE ---
@@ -222,13 +222,23 @@ export const useSimulatorStore = defineStore('simulator', () => {
                 }, 50)
             })
 
-            // AUTO-SEQUENCING AFTER EXPOSURE
+            scanPhase.value = 'exposed'
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    const startRecon = async () => {
+        if (scanPhase.value !== 'exposed') return
+
+        try {
             scanPhase.value = 'reconstructing'
-            await delay(1500)
+            scanStatus.value = 'scanning'
+            await delay(2000)
             if ((scanPhase.value as string) === 'error') return
 
             scanPhase.value = 'finishing'
-            await delay(800)
+            await delay(1000)
             if ((scanPhase.value as string) === 'error') return
 
             scanPhase.value = 'idle'
@@ -259,7 +269,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         toggleLaser, triggerEStop, resetEStop,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, prepareScan, enableScan, startExposure, failScan, resetSystem
+        moveGantry, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem
     }
 }, {
     persist: true // RESTORE PERSISTENCE
