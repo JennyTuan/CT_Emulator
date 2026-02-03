@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
-import { Card, Button, Progress, Table, Tag } from 'ant-design-vue';
-import { Play, Square, Pause, AlertCircle, Scan } from 'lucide-vue-next';
-import { computed, h } from 'vue';
+import { computed } from 'vue';
 
 const store = useSimulatorStore();
 
@@ -12,10 +10,10 @@ const progressPercent = computed(() => {
 
 const scanStatusColor = computed(() => {
   switch (store.scanStatus) {
-    case 'scanning': return '#52c41a';
-    case 'error': return '#f5222d';
-    case 'ready': return '#1890ff';
-    default: return '#666';
+    case 'scanning': return 'success';
+    case 'error': return 'error';
+    case 'ready': return 'primary';
+    default: return 'grey';
   }
 });
 
@@ -24,122 +22,149 @@ const historyData = [
   { key: '2', time: '10:30:45', protocol: 'Head Non-Contrast', dose: '45.2 mGy', status: 'Completed' },
   { key: '3', time: '10:15:22', protocol: 'Abdomen/Pelvis', dose: '18.1 mGy', status: 'Cancelled' },
 ];
-
-const columns = [
-  { title: 'Time', dataIndex: 'time', key: 'time' },
-  { title: 'Protocol', dataIndex: 'protocol', key: 'protocol' },
-  { title: 'Dose (CTDIvol)', dataIndex: 'dose', key: 'dose' },
-  { title: 'Status', dataIndex: 'status', key: 'status', customRender: ({ text }: any) => {
-    let color = text === 'Completed' ? 'green' : 'red';
-    return h(Tag, { color: color }, { default: () => text });
-  }},
-];
 </script>
 
 <template>
-  <Card class="scan-card" :bordered="false">
-    <template #title>
-      <div class="card-title-container">
-        <Scan :size="20" />
-        <span>SCAN STATE MACHINE</span>
-      </div>
-    </template>
+  <v-card class="scan-card mb-4" variant="flat">
+    <v-card-title class="card-title-container pa-4">
+      <v-icon color="primary" class="mr-2">mdi-barcode-scan</v-icon>
+      <span>SCAN STATE MACHINE</span>
+    </v-card-title>
     
-    <div class="scan-main">
-      <div class="scan-visualizer" :class="{ 'is-scanning': store.exposureActive }">
-        <div class="exposure-indicator" v-if="store.exposureActive">
-          EXPOSURE ACTIVE
-        </div>
-        <div class="slice-counter">
-          <span class="current">{{ store.currentSlice }}</span>
-          <span class="separator">/</span>
-          <span class="total">{{ store.totalSlices }} SLICES</span>
-        </div>
-        <Progress 
-          type="circle" 
-          :percent="progressPercent" 
-          :stroke-color="scanStatusColor"
-          :width="180"
-          :stroke-width="8"
-        >
-          <template #format="percent">
-            <span class="progress-percent">{{ percent }}%</span>
-          </template>
-        </Progress>
-      </div>
-
-      <div class="scan-controls">
-        <div class="status-banner" :style="{ borderLeftColor: scanStatusColor }">
-          <span class="label">CURRENT STATE:</span>
-          <span class="value">{{ store.scanStatus.toUpperCase() }}</span>
-        </div>
-
-        <div class="action-buttons">
-          <Button 
-            type="primary" 
-            size="large" 
-            :disabled="store.scanStatus === 'scanning' || store.eStopActive"
-            @click="store.startScan"
+    <v-card-text class="pa-4">
+      <div class="scan-main">
+        <div class="scan-visualizer" :class="{ 'is-scanning': store.exposureActive }">
+          <div class="exposure-indicator" v-if="store.exposureActive">
+            EXPOSURE ACTIVE
+          </div>
+          <div class="slice-counter">
+            <span class="current">{{ store.currentSlice }}</span>
+            <span class="separator">/</span>
+            <span class="total">{{ store.totalSlices }} SLICES</span>
+          </div>
+          <v-progress-circular
+            :model-value="progressPercent"
+            :color="scanStatusColor"
+            :size="180"
+            :width="12"
           >
-            <template #icon><Play :size="18" /></template>
-            START SCAN
-          </Button>
-          <Button size="large" :disabled="store.scanStatus !== 'scanning'">
-            <template #icon><Pause :size="18" /></template>
-            PAUSE
-          </Button>
-          <Button danger size="large" @click="store.triggerEStop">
-            <template #icon><Square :size="18" /></template>
-            STOP / E-STOP
-          </Button>
+            <span class="progress-percent">{{ progressPercent }}%</span>
+          </v-progress-circular>
         </div>
 
-        <div class="scan-params">
-          <div class="param-item">
-            <span class="label">KV</span>
-            <span class="value">120</span>
+        <div class="scan-controls">
+          <v-alert
+            variant="tonal"
+            :color="scanStatusColor"
+            class="status-banner mb-6"
+            density="compact"
+          >
+            <div class="d-flex align-center">
+              <span class="label mr-3">CURRENT STATE:</span>
+              <span class="value">{{ store.scanStatus.toUpperCase() }}</span>
+            </div>
+          </v-alert>
+
+          <div class="action-buttons mb-6">
+            <v-btn 
+              color="primary" 
+              size="large" 
+              :disabled="store.scanStatus === 'scanning' || store.eStopActive"
+              @click="store.startScan"
+              prepend-icon="mdi-play"
+              class="mr-3"
+            >
+              START SCAN
+            </v-btn>
+            <v-btn 
+              size="large" 
+              variant="outlined"
+              :disabled="store.scanStatus !== 'scanning'"
+              prepend-icon="mdi-pause"
+              class="mr-3"
+            >
+              PAUSE
+            </v-btn>
+            <v-btn 
+              color="error" 
+              size="large" 
+              @click="store.triggerEStop"
+              prepend-icon="mdi-stop"
+            >
+              STOP / E-STOP
+            </v-btn>
           </div>
-          <div class="param-item">
-            <span class="label">mA</span>
-            <span class="value">250</span>
-          </div>
-          <div class="param-item">
-            <span class="label">Pitch</span>
-            <span class="value">0.98</span>
-          </div>
-          <div class="param-item">
-            <span class="label">Rot. Time</span>
-            <span class="value">0.5s</span>
+
+          <div class="scan-params">
+            <div class="param-item">
+              <span class="label">KV</span>
+              <span class="value">120</span>
+            </div>
+            <div class="param-item">
+              <span class="label">mA</span>
+              <span class="value">250</span>
+            </div>
+            <div class="param-item">
+              <span class="label">Pitch</span>
+              <span class="value">0.98</span>
+            </div>
+            <div class="param-item">
+              <span class="label">Rot. Time</span>
+              <span class="value">0.5s</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="scan-history">
-      <h4 class="history-title">RECENT ACTIVITY</h4>
-      <Table :dataSource="historyData" :columns="columns" size="small" :pagination="false" />
-    </div>
-  </Card>
+      <div class="scan-history mt-6">
+        <h4 class="history-title mb-3">RECENT ACTIVITY</h4>
+        <v-table density="compact" class="history-table">
+          <thead>
+            <tr>
+              <th class="text-left">Time</th>
+              <th class="text-left">Protocol</th>
+              <th class="text-left">Dose (CTDIvol)</th>
+              <th class="text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in historyData" :key="item.key">
+              <td>{{ item.time }}</td>
+              <td>{{ item.protocol }}</td>
+              <td>{{ item.dose }}</td>
+              <td>
+                <v-chip
+                  size="x-small"
+                  :color="item.status === 'Completed' ? 'success' : 'error'"
+                  variant="flat"
+                >
+                  {{ item.status }}
+                </v-chip>
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+      </div>
+    </v-card-text>
+  </v-card>
 </template>
 
 <style scoped>
 .scan-card {
-  background: #001529 !important;
-  color: #fff;
-  height: 100%;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .card-title-container {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #1890ff;
+  font-size: 1rem;
+  font-weight: bold;
 }
 
 .scan-main {
   display: flex;
   gap: 32px;
-  margin-bottom: 32px;
+  flex-wrap: wrap;
 }
 
 .scan-visualizer {
@@ -149,27 +174,28 @@ const columns = [
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.3);
+  background: rgba(var(--v-theme-on-surface), 0.05);
   border-radius: 50%;
-  border: 4px solid #1f1f1f;
+  border: 4px solid rgba(var(--v-theme-on-surface), 0.1);
   transition: all 0.5s;
 }
 
 .scan-visualizer.is-scanning {
-  border-color: #52c41a;
-  box-shadow: 0 0 30px rgba(82, 196, 26, 0.2);
+  border-color: rgb(var(--v-theme-success));
+  box-shadow: 0 0 30px rgba(var(--v-theme-success), 0.2);
   animation: pulse-green 2s infinite;
 }
 
 .exposure-indicator {
   position: absolute;
   top: -10px;
-  background: #f5222d;
+  background: rgb(var(--v-theme-error));
   color: #fff;
   font-size: 0.65rem;
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: bold;
+  z-index: 1;
 }
 
 .slice-counter {
@@ -178,6 +204,7 @@ const columns = [
   display: flex;
   flex-direction: column;
   align-items: center;
+  z-index: 1;
 }
 
 .slice-counter .current {
@@ -187,38 +214,30 @@ const columns = [
 }
 
 .slice-counter .separator {
-  color: rgba(255,255,255,0.2);
+  opacity: 0.2;
 }
 
 .slice-counter .total {
   font-size: 0.7rem;
-  color: rgba(255,255,255,0.45);
+  opacity: 0.5;
 }
 
 .progress-percent {
   font-size: 1.5rem;
   font-weight: 300;
-  color: #fff;
 }
 
 .scan-controls {
   flex: 1;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.status-banner {
-  background: rgba(255,255,255,0.03);
-  border-left: 4px solid #666;
-  padding: 12px 20px;
-  margin-bottom: 24px;
-}
-
 .status-banner .label {
   font-size: 0.8rem;
-  color: rgba(255,255,255,0.45);
-  margin-right: 12px;
+  opacity: 0.6;
 }
 
 .status-banner .value {
@@ -230,7 +249,6 @@ const columns = [
 .action-buttons {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
 }
 
 .scan-params {
@@ -240,7 +258,7 @@ const columns = [
 }
 
 .param-item {
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--v-theme-on-surface), 0.03);
   padding: 8px;
   border-radius: 4px;
   text-align: center;
@@ -249,7 +267,7 @@ const columns = [
 .param-item .label {
   display: block;
   font-size: 0.7rem;
-  color: rgba(255,255,255,0.4);
+  opacity: 0.5;
   margin-bottom: 4px;
 }
 
@@ -260,25 +278,18 @@ const columns = [
 
 .history-title {
   font-size: 0.8rem;
-  color: rgba(255,255,255,0.45);
-  margin-bottom: 12px;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-:deep(.ant-table) {
+.history-table {
   background: transparent !important;
 }
 
-:deep(.ant-table-thead > tr > th) {
-  background: rgba(255,255,255,0.03) !important;
-  color: rgba(255,255,255,0.45) !important;
-  border-bottom: 1px solid #1f1f1f !important;
-}
-
-:deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid #1f1f1f !important;
-}
-
-:deep(.ant-table-tbody > tr:hover > td) {
-  background: rgba(255,255,255,0.02) !important;
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(var(--v-theme-success), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0); }
 }
 </style>

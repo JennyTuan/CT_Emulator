@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
-import { Button, Progress, Tag, Divider } from 'ant-design-vue';
-import { Zap, ShieldAlert, Thermometer, Wind, Radio, Settings, Activity } from 'lucide-vue-next';
 
 const store = useSimulatorStore();
 </script>
@@ -11,71 +9,85 @@ const store = useSimulatorStore();
     <div class="sidebar-section">
       <h3 class="section-title">GLOBAL STATUS</h3>
       
-      <div class="status-card" :class="{ 'active': store.laserOn }">
+      <v-card variant="tonal" class="status-card mb-3" :class="{ 'active': store.laserOn }">
         <div class="status-icon">
-          <Zap :size="20" :color="store.laserOn ? '#faad14' : '#666'" />
+          <v-icon :color="store.laserOn ? 'warning' : 'grey'">mdi-flash</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Laser Status</span>
           <span class="value">{{ store.laserOn ? 'ON' : 'OFF' }}</span>
         </div>
-        <Button size="small" :type="store.laserOn ? 'primary' : 'default'" @click="store.toggleLaser">
+        <v-btn size="small" :color="store.laserOn ? 'primary' : 'default'" @click="store.toggleLaser">
           TOGGLE
-        </Button>
-      </div>
+        </v-btn>
+      </v-card>
 
-      <div class="status-card" :class="{ 'warning': store.eStopActive }">
+      <v-card variant="tonal" class="status-card mb-3" :class="{ 'warning': store.eStopActive }">
         <div class="status-icon">
-          <ShieldAlert :size="20" :color="store.eStopActive ? '#f5222d' : '#666'" />
+          <v-icon :color="store.eStopActive ? 'error' : 'grey'">mdi-shield-alert</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Emergency Stop</span>
-          <Tag :color="store.eStopActive ? 'red' : 'green'">{{ store.eStopActive ? 'TRIGGERED' : 'NORMAL' }}</Tag>
+          <v-chip size="x-small" :color="store.eStopActive ? 'error' : 'success'">
+            {{ store.eStopActive ? 'TRIGGERED' : 'NORMAL' }}
+          </v-chip>
         </div>
-        <Button v-if="store.eStopActive" size="small" danger @click="store.resetEStop">RESET</Button>
-      </div>
+        <v-btn v-if="store.eStopActive" size="small" color="error" variant="flat" @click="store.resetEStop">RESET</v-btn>
+      </v-card>
 
-      <div class="status-card">
+      <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <Thermometer :size="20" color="#1890ff" />
+          <v-icon color="primary">mdi-thermometer</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Tube Warm-up</span>
-          <Progress :percent="store.warmUpProgress" size="small" :status="store.isWarmingUp ? 'active' : 'normal'" />
+          <v-progress-linear
+            :model-value="store.warmUpProgress"
+            color="primary"
+            height="6"
+            rounded
+            class="mt-1"
+          ></v-progress-linear>
         </div>
-        <Button size="small" :disabled="store.isWarmingUp || store.warmUpProgress === 100" @click="store.startWarmUp">
+        <v-btn size="small" variant="text" :disabled="store.isWarmingUp || store.warmUpProgress === 100" @click="store.startWarmUp">
           START
-        </Button>
-      </div>
+        </v-btn>
+      </v-card>
 
-      <div class="status-card">
+      <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <Wind :size="20" color="#52c41a" />
+          <v-icon color="success">mdi-wind-power</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Air Calibration</span>
-          <Progress :percent="store.airCalProgress" size="small" :status="store.isAirCalibrating ? 'active' : 'normal'" stroke-color="#52c41a" />
+          <v-progress-linear
+            :model-value="store.airCalProgress"
+            color="success"
+            height="6"
+            rounded
+            class="mt-1"
+          ></v-progress-linear>
         </div>
-        <Button size="small" :disabled="store.isAirCalibrating || store.airCalProgress === 100" @click="store.startAirCal">
+        <v-btn size="small" variant="text" :disabled="store.isAirCalibrating || store.airCalProgress === 100" @click="store.startAirCal">
           START
-        </Button>
-      </div>
+        </v-btn>
+      </v-card>
     </div>
 
-    <Divider style="border-color: #1f1f1f" />
+    <v-divider class="my-4"></v-divider>
 
     <div class="sidebar-section">
       <h3 class="section-title">SYSTEM MODULES</h3>
       <div class="nav-item active">
-        <Activity :size="18" />
+        <v-icon size="small" class="mr-2">mdi-monitor-dashboard</v-icon>
         <span>Hardware Dashboard</span>
       </div>
       <div class="nav-item">
-        <Radio :size="18" />
+        <v-icon size="small" class="mr-2">mdi-radio-tower</v-icon>
         <span>RF Subsystem</span>
       </div>
       <div class="nav-item">
-        <Settings :size="18" />
+        <v-icon size="small" class="mr-2">mdi-cog</v-icon>
         <span>Service Mode</span>
       </div>
     </div>
@@ -105,31 +117,25 @@ const store = useSimulatorStore();
 
 .section-title {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
+  opacity: 0.5;
   margin-bottom: 16px;
   letter-spacing: 1px;
 }
 
 .status-card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 8px;
   padding: 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
   transition: all 0.3s ease;
 }
 
 .status-card.active {
-  border-color: rgba(26, 144, 255, 0.4);
-  background: rgba(26, 144, 255, 0.05);
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
 .status-card.warning {
-  border-color: rgba(245, 34, 45, 0.4);
-  background: rgba(245, 34, 45, 0.05);
+  background: rgba(var(--v-theme-error), 0.1);
 }
 
 .status-icon {
@@ -138,7 +144,7 @@ const store = useSimulatorStore();
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.1);
   border-radius: 6px;
 }
 
@@ -151,7 +157,7 @@ const store = useSimulatorStore();
 
 .status-info .label {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
+  opacity: 0.6;
 }
 
 .status-info .value {
@@ -162,30 +168,30 @@ const store = useSimulatorStore();
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 12px;
   border-radius: 8px;
   cursor: pointer;
-  color: rgba(255,255,255,0.65);
+  opacity: 0.7;
   transition: all 0.2s;
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.05);
-  color: #fff;
+  background: rgba(var(--v-theme-primary), 0.05);
+  opacity: 1;
 }
 
 .nav-item.active {
-  background: #1890ff;
+  background: rgb(var(--v-theme-primary));
   color: #fff;
+  opacity: 1;
 }
 
 .sidebar-footer {
   margin-top: auto;
-  border-top: 1px solid #1f1f1f;
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-top: 16px;
   font-size: 0.7rem;
-  color: rgba(255,255,255,0.3);
+  opacity: 0.4;
   display: flex;
   justify-content: space-between;
 }

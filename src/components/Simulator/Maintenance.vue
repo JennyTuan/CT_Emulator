@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Card, Button, List, Badge, Tabs } from 'ant-design-vue';
-import { Wrench, Clock } from 'lucide-vue-next';
 import { useSimulatorStore } from '../../store/simulator';
 import { ref } from 'vue';
 import TubeWarmup from './TubeWarmup.vue';
@@ -18,127 +16,115 @@ const maintenanceTasks = [
 </script>
 
 <template>
-  <Card class="maintenance-card" :bordered="false">
-    <template #title>
-      <div class="card-title-container">
-        <Wrench :size="20" />
-        <span>MAINTENANCE & CALIBRATION</span>
-      </div>
-    </template>
+  <v-card class="maintenance-card" variant="flat">
+    <v-card-title class="card-title-container pa-4">
+      <v-icon color="primary" class="mr-2">mdi-wrench</v-icon>
+      <span>MAINTENANCE & CALIBRATION</span>
+    </v-card-title>
 
-    <div class="maintenance-content">
-      <div class="workflow-section">
-        <Tabs v-model:activeKey="activeKey" class="custom-tabs">
-          <Tabs.TabPane key="warmup" tab="球管预热">
-            <TubeWarmup />
-          </Tabs.TabPane>
-          <Tabs.TabPane key="aircal" tab="空气校正">
-            <AirCalibration />
-          </Tabs.TabPane>
-        </Tabs>
-      </div>
+    <v-card-text class="pa-4">
+      <div class="maintenance-content">
+        <div class="workflow-section">
+          <v-tabs v-model="activeKey" color="primary" class="custom-tabs-nav mb-4">
+            <v-tab value="warmup">球管预热</v-tab>
+            <v-tab value="aircal">空气校正</v-tab>
+          </v-tabs>
+          
+          <v-tabs-window v-model="activeKey" class="custom-tabs-content">
+            <v-tabs-window-item value="warmup">
+              <TubeWarmup />
+            </v-tabs-window-item>
+            <v-tabs-window-item value="aircal">
+              <AirCalibration />
+            </v-tabs-window-item>
+          </v-tabs-window>
+        </div>
 
-      <div class="tasks-section">
-        <h4 class="section-subtitle">SUBSYSTEM HEALTH</h4>
-        <List :dataSource="maintenanceTasks" size="small">
-          <template #renderItem="{ item }">
-            <List.Item class="task-item">
-              <div class="task-main">
-                <Badge :status="item.status" />
-                <span class="task-title">{{ item.title }}</span>
-              </div>
-              <div class="task-meta">
-                <Clock :size="12" />
-                <span>{{ item.lastRun }}</span>
-                <Button type="link" size="small">RUN</Button>
-              </div>
-            </List.Item>
-          </template>
-        </List>
-      </div>
+        <div class="tasks-section">
+          <h4 class="section-subtitle">SUBSYSTEM HEALTH</h4>
+          <v-list density="compact" class="transparent">
+            <v-list-item v-for="(item, index) in maintenanceTasks" :key="index" class="task-item px-0">
+              <template v-slot:prepend>
+                <div class="dot mr-2" :class="item.status === 'success' ? 'success' : (item.status === 'warning' ? 'warning' : 'grey')"></div>
+              </template>
+              <v-list-item-title class="task-title">{{ item.title }}</v-list-item-title>
+              <template v-slot:append>
+                <div class="task-meta d-flex align-center">
+                  <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>
+                  <span class="mr-2">{{ item.lastRun }}</span>
+                  <v-btn variant="text" size="x-small" color="primary">RUN</v-btn>
+                </div>
+              </template>
+            </v-list-item>
+          </v-list>
+        </div>
 
-      <div class="logs-section">
-        <h4 class="section-subtitle">SYSTEM LOGS (REAL-TIME)</h4>
-        <div class="log-viewport">
-          <div class="log-entry info">[10:45:12] Scan sequence 'CHEST_01' initiated.</div>
-          <div class="log-entry info">[10:46:05] Exposure completed. Dose: 12.4mGy.</div>
-          <div class="log-entry warn">[11:01:28] Tube temperature approaching threshold (75°C).</div>
-          <div class="log-entry info">[11:02:15] Motion controller heartbeat OK.</div>
-          <div class="log-entry error" v-if="store.eStopActive">[11:03:00] FATAL: Communication lost with Gantry PLC.</div>
+        <div class="logs-section">
+          <h4 class="section-subtitle">SYSTEM LOGS (REAL-TIME)</h4>
+          <div class="log-viewport">
+            <div class="log-entry info">[10:45:12] Scan sequence 'CHEST_01' initiated.</div>
+            <div class="log-entry info">[10:46:05] Exposure completed. Dose: 12.4mGy.</div>
+            <div class="log-entry warn">[11:01:28] Tube temperature approaching threshold (75°C).</div>
+            <div class="log-entry info">[11:02:15] Motion controller heartbeat OK.</div>
+            <div class="log-entry error" v-if="store.eStopActive">[11:03:00] FATAL: Communication lost with Gantry PLC.</div>
+          </div>
         </div>
       </div>
-    </div>
-  </Card>
+    </v-card-text>
+  </v-card>
 </template>
 
 <style scoped>
 .maintenance-card {
-  background: #001529 !important;
-  color: #fff;
-}
-
-:deep(.ant-card-body) {
-  padding: 0 24px 24px 24px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .card-title-container {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #1890ff;
+  font-size: 1rem;
+  font-weight: bold;
 }
 
 .maintenance-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.2fr;
+  display: flex;
   gap: 32px;
 }
 
-.custom-tabs {
-  background: transparent;
-  border-radius: 8px;
-  overflow: hidden;
-  height: 480px;
+.workflow-section {
+  flex: 2;
+  min-width: 0;
 }
 
-:deep(.ant-tabs-nav) {
-  margin: 0 !important;
-  padding: 0 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.tasks-section {
+  flex: 1;
+  min-width: 0;
 }
 
-:deep(.ant-tabs-tab) {
-  padding: 12px 16px !important;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.45) !important;
+.logs-section {
+  flex: 1.2;
+  min-width: 0;
 }
 
-:deep(.ant-tabs-tab-active) {
-  color: #1890ff !important;
+.custom-tabs-nav {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-:deep(.ant-tabs-ink-bar) {
-  background: #1890ff !important;
+.custom-tabs-content {
+  height: 400px;
+  overflow-y: auto;
 }
 
 .section-subtitle {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
-  margin-top: 16px;
-  margin-bottom: 16px;
+  opacity: 0.5;
+  margin-bottom: 12px;
+  text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .task-item {
-  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
-  padding: 8px 0 !important;
-}
-
-.task-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.05);
 }
 
 .task-title {
@@ -146,19 +132,25 @@ const maintenanceTasks = [
 }
 
 .task-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
+  font-size: 0.7rem;
+  opacity: 0.5;
 }
 
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dot.success { background-color: rgb(var(--v-theme-success)); }
+.dot.warning { background-color: rgb(var(--v-theme-warning)); }
+.dot.grey { background-color: #666; }
+
 .log-viewport {
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 4px;
   padding: 12px;
-  height: 430px;
+  height: 400px;
   overflow-y: auto;
   font-family: 'Consolas', monospace;
   font-size: 0.75rem;
@@ -170,7 +162,13 @@ const maintenanceTasks = [
   padding-left: 8px;
 }
 
-.log-entry.info { color: #888; border-left-color: #1890ff; }
-.log-entry.warn { color: #faad14; border-left-color: #faad14; }
-.log-entry.error { color: #f5222d; border-left-color: #f5222d; background: rgba(245, 34, 45, 0.05); }
+.log-entry.info { opacity: 0.6; border-left-color: rgb(var(--v-theme-primary)); }
+.log-entry.warn { color: rgb(var(--v-theme-warning)); border-left-color: rgb(var(--v-theme-warning)); }
+.log-entry.error { color: rgb(var(--v-theme-error)); border-left-color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.05); }
+
+@media (max-width: 1200px) {
+  .maintenance-content {
+    flex-direction: column;
+  }
+}
 </style>
