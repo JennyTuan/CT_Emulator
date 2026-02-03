@@ -1,7 +1,28 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
+import { computed } from 'vue';
 
 const store = useSimulatorStore();
+
+const warmUpColor = computed(() => {
+  switch (store.warmUpStatus) {
+    case 'running': return 'primary';
+    case 'paused': return 'warning';
+    case 'finished': return 'success';
+    case 'error': return 'error';
+    default: return 'grey';
+  }
+});
+
+const airCalColor = computed(() => {
+  switch (store.airCalStatus) {
+    case 'running': return 'success';
+    case 'paused': return 'warning';
+    case 'finished': return 'primary';
+    case 'error': return 'error';
+    default: return 'grey';
+  }
+});
 </script>
 
 <template>
@@ -37,40 +58,94 @@ const store = useSimulatorStore();
 
       <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <v-icon color="primary">mdi-thermometer</v-icon>
+          <v-icon :color="warmUpColor">mdi-thermometer</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Tube Warm-up</span>
           <v-progress-linear
             :model-value="store.warmUpProgress"
-            color="primary"
+            :color="warmUpColor"
             height="6"
             rounded
+            :indeterminate="store.warmUpStatus === 'running'"
             class="mt-1"
           ></v-progress-linear>
         </div>
-        <v-btn size="small" variant="text" :disabled="store.isWarmingUp || store.warmUpProgress === 100" @click="store.startWarmUp">
-          START
-        </v-btn>
+        <div class="d-flex flex-column align-end">
+          <v-btn 
+            v-if="store.warmUpStatus === 'idle' || store.warmUpStatus === 'finished'" 
+            size="x-small" 
+            variant="text" 
+            @click="store.startWarmUp"
+          >START</v-btn>
+          <v-btn 
+            v-else-if="store.warmUpStatus === 'running'" 
+            size="x-small" 
+            variant="text" 
+            color="warning" 
+            @click="store.pauseWarmUp"
+          >PAUSE</v-btn>
+          <v-btn 
+            v-else-if="store.warmUpStatus === 'paused'" 
+            size="x-small" 
+            variant="text" 
+            color="primary" 
+            @click="store.resumeWarmUp"
+          >RESUME</v-btn>
+          <v-btn 
+            v-if="store.warmUpStatus === 'error'" 
+            size="x-small" 
+            variant="text" 
+            color="error" 
+            @click="store.resetWarmUp"
+          >RESET</v-btn>
+        </div>
       </v-card>
 
       <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <v-icon color="success">mdi-wind-power</v-icon>
+          <v-icon :color="airCalColor">mdi-wind-power</v-icon>
         </div>
         <div class="status-info">
           <span class="label">Air Calibration</span>
           <v-progress-linear
             :model-value="store.airCalProgress"
-            color="success"
+            :color="airCalColor"
             height="6"
             rounded
+            :indeterminate="store.airCalStatus === 'running'"
             class="mt-1"
           ></v-progress-linear>
         </div>
-        <v-btn size="small" variant="text" :disabled="store.isAirCalibrating || store.airCalProgress === 100" @click="store.startAirCal">
-          START
-        </v-btn>
+        <div class="d-flex flex-column align-end">
+          <v-btn 
+            v-if="store.airCalStatus === 'idle' || store.airCalStatus === 'finished'" 
+            size="x-small" 
+            variant="text" 
+            @click="store.startAirCal"
+          >START</v-btn>
+          <v-btn 
+            v-else-if="store.airCalStatus === 'running'" 
+            size="x-small" 
+            variant="text" 
+            color="warning" 
+            @click="store.pauseAirCal"
+          >PAUSE</v-btn>
+          <v-btn 
+            v-else-if="store.airCalStatus === 'paused'" 
+            size="x-small" 
+            variant="text" 
+            color="success" 
+            @click="store.resumeAirCal"
+          >RESUME</v-btn>
+          <v-btn 
+            v-if="store.airCalStatus === 'error'" 
+            size="x-small" 
+            variant="text" 
+            color="error" 
+            @click="store.resetAirCal"
+          >RESET</v-btn>
+        </div>
       </v-card>
     </div>
 

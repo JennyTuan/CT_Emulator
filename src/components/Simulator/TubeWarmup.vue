@@ -1,18 +1,34 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
+import { computed } from 'vue';
 
 const store = useSimulatorStore();
+
+const statusColor = computed(() => {
+  switch (store.warmUpStatus) {
+    case 'running': return 'primary';
+    case 'paused': return 'warning';
+    case 'finished': return 'success';
+    case 'error': return 'error';
+    default: return 'grey';
+  }
+});
 </script>
 
 <template>
   <div class="warm-up-panel">
     <v-alert
-      type="warning"
+      :type="store.warmUpStatus === 'error' ? 'error' : 'warning'"
       variant="tonal"
-      class="hint-banner mb-8"
+      class="hint-banner mb-6"
       border="start"
     >
-      提示：热容量低于20%时建议进行预热
+      <div class="d-flex justify-space-between align-center">
+        <span>{{ store.warmUpStatus === 'error' ? '预热发生故障，请检查硬件状态' : '提示：热容量低于20%时建议进行预热' }}</span>
+        <v-chip size="small" :color="statusColor" variant="flat">
+          {{ store.warmUpStatus.toUpperCase() }}
+        </v-chip>
+      </div>
     </v-alert>
 
     <div class="form-content">
@@ -39,6 +55,7 @@ const store = useSimulatorStore();
             type="number"
             :min="0"
             :max="100"
+            :disabled="store.warmUpStatus === 'running'"
             density="compact"
             variant="outlined"
             hide-details
@@ -49,16 +66,60 @@ const store = useSimulatorStore();
       </div>
     </div>
 
-    <div class="panel-footer mt-12">
+    <v-progress-linear
+      :model-value="store.warmUpProgress"
+      :color="statusColor"
+      height="10"
+      rounded
+      striped
+      :indeterminate="store.warmUpStatus === 'running'"
+      class="mt-4 mb-8"
+    ></v-progress-linear>
+
+    <div class="panel-footer d-flex gap-2 justify-end">
       <v-btn
+        v-if="store.warmUpStatus === 'idle' || store.warmUpStatus === 'error' || store.warmUpStatus === 'finished'"
         color="primary"
-        size="large"
-        class="start-button"
         @click="store.startWarmUp"
-        :loading="store.isWarmingUp"
-        prepend-icon="mdi-circle-medium"
+        prepend-icon="mdi-play"
       >
         开始预热
+      </v-btn>
+
+      <v-btn
+        v-if="store.warmUpStatus === 'running'"
+        color="warning"
+        @click="store.pauseWarmUp"
+        prepend-icon="mdi-pause"
+      >
+        暂停
+      </v-btn>
+
+      <v-btn
+        v-if="store.warmUpStatus === 'paused'"
+        color="primary"
+        @click="store.resumeWarmUp"
+        prepend-icon="mdi-play-pause"
+      >
+        恢复
+      </v-btn>
+
+      <v-btn
+        v-if="store.warmUpStatus === 'running' || store.warmUpStatus === 'paused'"
+        color="error"
+        variant="tonal"
+        @click="store.failWarmUp"
+        prepend-icon="mdi-alert-circle"
+      >
+        模拟故障
+      </v-btn>
+
+      <v-btn
+        variant="outlined"
+        @click="store.resetWarmUp"
+        prepend-icon="mdi-refresh"
+      >
+        重置
       </v-btn>
     </div>
   </div>

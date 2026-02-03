@@ -4,23 +4,27 @@ export const useSimulatorStore = defineStore('simulator', () => {
     // Global States
     const laserOn = ref(false);
     const eStopActive = ref(false);
+    // Tube Warm-up States
+    const warmUpStatus = ref('idle');
     const warmUpProgress = ref(0);
-    const isWarmingUp = ref(false);
     const currentHeatCapacity = ref(0);
     const targetHeatCapacity = ref(60);
+    let warmUpTimer = null;
+    // Air Calibration States
+    const airCalStatus = ref('idle');
     const airCalProgress = ref(0);
-    const isAirCalibrating = ref(false);
+    const completedAirCalCombinations = ref(0);
+    let airCalTimer = null;
     const airCalParams = ref({
         rotationSpeed: [1, 2, 0.75],
         focalSpot: ['small', 'big'],
         voltage: [80, 100, 120, 140],
         collimatorWidth: ['32*0.6']
     });
-    const completedAirCalCombinations = ref(0);
     // Motion States
     const gantryPosition = ref(0);
-    const tableVertical = ref(0);
-    const tableHorizontal = ref(0);
+    const tableVertical = ref(150);
+    const tableHorizontal = ref(800);
     const isMoving = ref(false);
     // Scan States
     const scanStatus = ref('idle');
@@ -36,47 +40,106 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scanStatus.value = 'error';
         isMoving.value = false;
         exposureActive.value = false;
+        if (warmUpStatus.value === 'running')
+            failWarmUp();
+        if (airCalStatus.value === 'running')
+            failAirCal();
     };
     const resetEStop = () => {
         eStopActive.value = false;
-        if (scanStatus.value === 'error') {
+        if (scanStatus.value === 'error')
             scanStatus.value = 'idle';
-        }
     };
+    // Warm-up Actions
     const startWarmUp = () => {
-        if (isWarmingUp.value)
+        if (warmUpStatus.value === 'running' || warmUpStatus.value === 'finished')
             return;
-        isWarmingUp.value = true;
-        // Starting from current heat capacity, but for demo we just progress to 100
-        const interval = setInterval(() => {
-            warmUpProgress.value += 2;
-            currentHeatCapacity.value = Math.min(targetHeatCapacity.value, currentHeatCapacity.value + (targetHeatCapacity.value / 50));
+        warmUpStatus.value = 'running';
+        runWarmUp();
+    };
+    const runWarmUp = () => {
+        warmUpTimer = setInterval(() => {
+            if (warmUpStatus.value !== 'running') {
+                clearInterval(warmUpTimer);
+                return;
+            }
+            warmUpProgress.value = Math.min(100, warmUpProgress.value + 1);
+            currentHeatCapacity.value = (warmUpProgress.value / 100) * targetHeatCapacity.value;
             if (warmUpProgress.value >= 100) {
-                clearInterval(interval);
-                isWarmingUp.value = false;
-                currentHeatCapacity.value = targetHeatCapacity.value;
+                clearInterval(warmUpTimer);
+                warmUpStatus.value = 'finished';
             }
         }, 100);
     };
+    const pauseWarmUp = () => {
+        if (warmUpStatus.value === 'running') {
+            warmUpStatus.value = 'paused';
+            clearInterval(warmUpTimer);
+        }
+    };
+    const resumeWarmUp = () => {
+        if (warmUpStatus.value === 'paused') {
+            warmUpStatus.value = 'running';
+            runWarmUp();
+        }
+    };
+    const failWarmUp = () => {
+        warmUpStatus.value = 'error';
+        clearInterval(warmUpTimer);
+    };
+    const resetWarmUp = () => {
+        warmUpStatus.value = 'idle';
+        warmUpProgress.value = 0;
+        currentHeatCapacity.value = 0;
+        clearInterval(warmUpTimer);
+    };
+    // Air Calibration Actions
     const startAirCal = () => {
-        if (isAirCalibrating.value)
+        if (airCalStatus.value === 'running' || airCalStatus.value === 'finished')
             return;
-        isAirCalibrating.value = true;
-        airCalProgress.value = 0;
-        const totalCombinations = 24; // 3 * 2 * 4 * 1
-        const interval = setInterval(() => {
-            airCalProgress.value += 1;
+        airCalStatus.value = 'running';
+        runAirCal();
+    };
+    const runAirCal = () => {
+        const totalCombinations = 24;
+        airCalTimer = setInterval(() => {
+            if (airCalStatus.value !== 'running') {
+                clearInterval(airCalTimer);
+                return;
+            }
+            airCalProgress.value = Math.min(100, airCalProgress.value + 0.5);
             completedAirCalCombinations.value = Math.floor((airCalProgress.value / 100) * totalCombinations);
             if (airCalProgress.value >= 100) {
-                clearInterval(interval);
-                isAirCalibrating.value = false;
+                clearInterval(airCalTimer);
+                airCalStatus.value = 'finished';
                 completedAirCalCombinations.value = totalCombinations;
             }
-        }, 200);
+        }, 100);
+    };
+    const pauseAirCal = () => {
+        if (airCalStatus.value === 'running') {
+            airCalStatus.value = 'paused';
+            clearInterval(airCalTimer);
+        }
+    };
+    const resumeAirCal = () => {
+        if (airCalStatus.value === 'paused') {
+            airCalStatus.value = 'running';
+            runAirCal();
+        }
+    };
+    const failAirCal = () => {
+        airCalStatus.value = 'error';
+        clearInterval(airCalTimer);
+    };
+    const resetAirCal = () => {
+        airCalStatus.value = 'idle';
+        airCalProgress.value = 0;
+        completedAirCalCombinations.value = 0;
+        clearInterval(airCalTimer);
     };
     const clearAirCalRecords = () => {
-        completedAirCalCombinations.value = 0;
-        airCalProgress.value = 0;
+        resetAirCal();
     };
     const moveGantry = (pos) => {
         isMoving.value = true;
@@ -106,11 +169,17 @@ export const useSimulatorStore = defineStore('simulator', () => {
         }, 50);
     };
     return {
-        laserOn, eStopActive, warmUpProgress, isWarmingUp, currentHeatCapacity, targetHeatCapacity,
-        airCalProgress, isAirCalibrating, airCalParams, completedAirCalCombinations,
+        laserOn, eStopActive,
+        warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
+        airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
         scanStatus, currentSlice, totalSlices, exposureActive,
-        toggleLaser, triggerEStop, resetEStop, startWarmUp, startAirCal, clearAirCalRecords, moveGantry, startScan
+        toggleLaser, triggerEStop, resetEStop,
+        startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
+        startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
+        moveGantry, startScan
     };
+}, {
+    persist: true
 });
 //# sourceMappingURL=simulator.js.map

@@ -1,12 +1,25 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import Antd from 'ant-design-vue';
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
 import App from './App.vue';
-import 'ant-design-vue/dist/reset.css';
+// Vuetify
+import 'vuetify/styles';
+import { createVuetify } from 'vuetify';
+import * as components from 'vuetify/components';
+import * as directives from 'vuetify/directives';
+import '@mdi/font/css/materialdesignicons.css';
 import './styles/main.css';
+const vuetify = createVuetify({
+    components,
+    directives,
+    theme: {
+        defaultTheme: 'light',
+    },
+});
 const app = createApp(App);
 const pinia = createPinia();
+pinia.use(piniaPluginPersistedstate);
 app.use(pinia);
-app.use(Antd);
+app.use(vuetify);
 app.mount('#app');
 //# sourceMappingURL=main.js.map

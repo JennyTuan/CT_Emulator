@@ -18,9 +18,9 @@ const scanStatusColor = computed(() => {
 });
 
 const historyData = [
-  { key: '1', time: '10:45:12', protocol: 'Chest Routine', dose: '12.4 mGy', status: 'Completed' },
-  { key: '2', time: '10:30:45', protocol: 'Head Non-Contrast', dose: '45.2 mGy', status: 'Completed' },
-  { key: '3', time: '10:15:22', protocol: 'Abdomen/Pelvis', dose: '18.1 mGy', status: 'Cancelled' },
+  { key: '1', time: '10:45:12', protocol: 'Chest Routine', patientId: 'PID-2024-001', dose: '12.4 mGy', status: 'Completed' },
+  { key: '2', time: '10:30:45', protocol: 'Head Non-Contrast', patientId: 'PID-2024-002', dose: '45.2 mGy', status: 'Completed' },
+  { key: '3', time: '10:15:22', protocol: 'Abdomen/Pelvis', patientId: 'PID-2024-003', dose: '18.1 mGy', status: 'Cancelled' },
 ];
 </script>
 
@@ -123,6 +123,7 @@ const historyData = [
             <tr>
               <th class="text-left">Time</th>
               <th class="text-left">Protocol</th>
+              <th class="text-left">Patient ID</th>
               <th class="text-left">Dose (CTDIvol)</th>
               <th class="text-left">Status</th>
             </tr>
@@ -131,6 +132,7 @@ const historyData = [
             <tr v-for="item in historyData" :key="item.key">
               <td>{{ item.time }}</td>
               <td>{{ item.protocol }}</td>
+              <td><code class="pid-code">{{ item.patientId }}</code></td>
               <td>{{ item.dose }}</td>
               <td>
                 <v-chip
@@ -285,6 +287,15 @@ const historyData = [
 
 .history-table {
   background: transparent !important;
+}
+
+.pid-code {
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: rgb(var(--v-theme-primary));
 }
 
 @keyframes pulse-green {

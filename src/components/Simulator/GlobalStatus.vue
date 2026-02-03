@@ -13,9 +13,9 @@ const store = useSimulatorStore();
     </div>
     
     <div class="status-indicator">
-      <div class="dot pulse" :class="store.isWarmingUp ? 'info' : (store.warmUpProgress === 100 ? 'success' : 'grey')"></div>
+      <div class="dot pulse" :class="store.warmUpStatus === 'running' ? 'info' : (store.warmUpStatus === 'finished' ? 'success' : 'grey')"></div>
       <span class="label">TUBE:</span>
-      <span class="value">{{ store.warmUpProgress }}% {{ store.isWarmingUp ? 'WARMING...' : 'READY' }}</span>
+      <span class="value">{{ store.warmUpProgress }}% {{ store.warmUpStatus === 'running' ? 'WARMING...' : 'READY' }}</span>
     </div>
 
     <div class="status-indicator">

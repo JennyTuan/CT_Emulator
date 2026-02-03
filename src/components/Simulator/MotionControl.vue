@@ -59,11 +59,11 @@ const moveStep = (axis: 'gantry' | 'v' | 'h', amount: number) => {
 
       <div class="axis-group">
         <div class="axis-header">
-          <span class="axis-name">TABLE HORIZONTAL</span>
+          <span class="axis-name">SCANNER TRAVEL (Horizontal)</span>
           <span class="axis-value">{{ store.tableHorizontal.toFixed(1) }} mm</span>
         </div>
         <div class="axis-controls">
-          <v-btn icon="mdi-chevron-down" density="compact" variant="text" size="small" @click="moveStep('h', -10)"></v-btn>
+          <v-btn icon="mdi-chevron-double-left" density="compact" variant="text" size="small" @click="moveStep('h', -10)"></v-btn>
           <v-slider
             v-model="store.tableHorizontal"
             :min="0"
@@ -72,25 +72,43 @@ const moveStep = (axis: 'gantry' | 'v' | 'h', amount: number) => {
             color="primary"
             class="axis-slider mx-2"
           ></v-slider>
-          <v-btn icon="mdi-chevron-up" density="compact" variant="text" size="small" @click="moveStep('h', 10)"></v-btn>
+          <v-btn icon="mdi-chevron-double-right" density="compact" variant="text" size="small" @click="moveStep('h', 10)"></v-btn>
         </div>
       </div>
 
       <div class="motion-visualizer mt-4">
-        <div class="gantry-ring">
-          <div class="gantry-tilt-indicator" :style="{ transform: `rotate(${store.gantryPosition}deg)` }"></div>
-          <div class="table-v" :style="{ bottom: `${(store.tableVertical / 300) * 100}%` }">
-            <div class="table-top"></div>
+        <div class="visualizer-container">
+          <!-- Floor -->
+          <div class="floor"></div>
+          
+          <!-- Moving Gantry -->
+          <div class="gantry-system" :style="{ 
+            left: `${10 + (store.tableHorizontal / 2000) * 180}px`
+          }">
+            <div class="gantry-side" :style="{ transform: `rotate(${store.gantryPosition}deg)` }">
+              <div class="gantry-aperture"></div>
+            </div>
+            <div class="gantry-rails"></div>
+          </div>
+          
+          <!-- Fixed Table (Vertical only) -->
+          <div class="table-system fixed-h" :style="{ 
+            bottom: `${20 + (store.tableVertical / 300) * 40}px`
+          }">
+            <div class="table-bed"></div>
+            <div class="table-base"></div>
           </div>
         </div>
+        
+        <div class="visualizer-label">SCANNER TRAVEL VIEW</div>
       </div>
 
       <div class="quick-positions pt-4">
         <span class="label mb-2">PRESETS</span>
         <div class="d-flex gap-2">
           <v-btn size="small" variant="outlined" @click="store.tableHorizontal = 0; store.tableVertical = 150">HOME</v-btn>
-          <v-btn size="small" variant="outlined" class="mx-2" @click="store.tableHorizontal = 800; store.tableVertical = 150">CENTER</v-btn>
-          <v-btn size="small" variant="outlined" @click="store.tableHorizontal = 1800">UNLOAD</v-btn>
+          <v-btn size="small" variant="outlined" class="mx-2" @click="store.tableHorizontal = 1000; store.tableVertical = 150">SCAN CENTER</v-btn>
+          <v-btn size="small" variant="outlined" @click="store.tableHorizontal = 1800">PARK</v-btn>
         </div>
       </div>
     </v-card-text>
@@ -140,53 +158,106 @@ const moveStep = (axis: 'gantry' | 'v' | 'h', amount: number) => {
 }
 
 .motion-visualizer {
-  height: 140px;
-  background: rgba(var(--v-theme-on-surface), 0.05);
+  height: 160px;
+  background: rgba(var(--v-theme-on-surface), 0.03);
   border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.05);
+}
+
+.visualizer-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+}
+
+.floor {
+  position: absolute;
+  bottom: 20px;
+  width: 90%;
+  height: 2px;
+  background: rgba(var(--v-theme-on-surface), 0.1);
+}
+
+.gantry-system {
+  position: absolute;
+  bottom: 20px;
+  width: 60px;
+  height: 110px;
+  z-index: 2;
+  transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gantry-side {
+  width: 40px;
+  height: 100px;
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.2);
+  border-radius: 4px;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: bottom center;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
 }
 
-.gantry-ring {
-  width: 100px;
-  height: 100px;
-  border: 8px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 50%;
-  position: relative;
-}
-
-.gantry-tilt-indicator {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  width: 4px;
-  height: 20px;
-  background: rgb(var(--v-theme-primary));
-  margin-left: -2px;
-  transition: transform 0.3s;
-  transform-origin: 50% 62px;
-}
-
-.table-v {
-  position: absolute;
-  width: 60px;
+.gantry-rails {
   height: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.3);
-  left: 50%;
-  margin-left: -30px;
-  transition: bottom 0.3s;
-}
-
-.table-top {
-  position: absolute;
-  top: -4px;
   width: 100%;
-  height: 4px;
-  background: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-on-surface), 0.2);
+  margin-top: 2px;
   border-radius: 2px;
+}
+
+.table-system {
+  position: absolute;
+  width: 120px;
+  height: 60px;
+  z-index: 1;
+  transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.table-system.fixed-h {
+  right: 40px;
+}
+
+.table-bed {
+  width: 140px;
+  height: 6px;
+  background: rgb(var(--v-theme-primary));
+  border-radius: 3px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  box-shadow: 0 2px 10px rgba(var(--v-theme-primary), 0.3);
+}
+
+.table-base {
+  width: 40px;
+  height: 40px;
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  border-left: 2px solid rgba(var(--v-theme-on-surface), 0.1);
+  position: absolute;
+  top: 6px;
+  right: 20px;
+}
+
+.visualizer-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  opacity: 0.3;
+  font-weight: bold;
 }
 
 .quick-positions {

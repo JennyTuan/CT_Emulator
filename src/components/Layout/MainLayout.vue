@@ -6,16 +6,25 @@ import ScanStatus from '../Simulator/ScanStatus.vue';
 import GlobalStatus from '../Simulator/GlobalStatus.vue';
 import Maintenance from '../Simulator/Maintenance.vue';
 import { useSimulatorStore } from '../../store/simulator';
-import { computed } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 
 const store = useSimulatorStore();
 const theme = useTheme();
 
 const toggleTheme = () => {
-  theme.global.name.value = theme.global.current.value.dark ? 'light' : 'dark'
+  const newTheme = theme.global.current.value.dark ? 'light' : 'dark'
+  theme.global.name.value = newTheme
+  localStorage.setItem('theme', newTheme)
 };
 
 const isDark = computed(() => theme.global.current.value.dark);
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    theme.global.name.value = savedTheme;
+  }
+});
 </script>
 
 <template>
