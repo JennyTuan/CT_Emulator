@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
 import { Button, Progress, Tag, Divider } from 'ant-design-vue';
-import { Zap, ShieldAlert, Thermometer, Radio, Settings, Activity } from 'lucide-vue-next';
+import { Zap, ShieldAlert, Thermometer, Wind, Radio, Settings, Activity } from 'lucide-vue-next';
 
 const store = useSimulatorStore();
 </script>
@@ -44,6 +44,19 @@ const store = useSimulatorStore();
           <Progress :percent="store.warmUpProgress" size="small" :status="store.isWarmingUp ? 'active' : 'normal'" />
         </div>
         <Button size="small" :disabled="store.isWarmingUp || store.warmUpProgress === 100" @click="store.startWarmUp">
+          START
+        </Button>
+      </div>
+
+      <div class="status-card">
+        <div class="status-icon">
+          <Wind :size="20" color="#52c41a" />
+        </div>
+        <div class="status-info">
+          <span class="label">Air Calibration</span>
+          <Progress :percent="store.airCalProgress" size="small" :status="store.isAirCalibrating ? 'active' : 'normal'" stroke-color="#52c41a" />
+        </div>
+        <Button size="small" :disabled="store.isAirCalibrating || store.airCalProgress === 100" @click="store.startAirCal">
           START
         </Button>
       </div>

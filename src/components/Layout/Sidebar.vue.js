@@ -1,7 +1,7 @@
 /// <reference types="../../../node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
 import { useSimulatorStore } from '../../store/simulator';
 import { Button, Progress, Tag, Divider } from 'ant-design-vue';
-import { Zap, ShieldAlert, Thermometer, Radio, Settings, Activity } from 'lucide-vue-next';
+import { Zap, ShieldAlert, Thermometer, Wind, Radio, Settings, Activity } from 'lucide-vue-next';
 const store = useSimulatorStore();
 debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_ctx = {};
@@ -190,15 +190,74 @@ const __VLS_43 = {
 };
 __VLS_39.slots.default;
 var __VLS_39;
-const __VLS_44 = {}.Divider;
-/** @type {[typeof __VLS_components.Divider, ]} */ ;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "status-card" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "status-icon" },
+});
+const __VLS_44 = {}.Wind;
+/** @type {[typeof __VLS_components.Wind, ]} */ ;
 // @ts-ignore
 const __VLS_45 = __VLS_asFunctionalComponent(__VLS_44, new __VLS_44({
-    ...{ style: {} },
+    size: (20),
+    color: "#52c41a",
 }));
 const __VLS_46 = __VLS_45({
-    ...{ style: {} },
+    size: (20),
+    color: "#52c41a",
 }, ...__VLS_functionalComponentArgsRest(__VLS_45));
+__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+    ...{ class: "status-info" },
+});
+__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+    ...{ class: "label" },
+});
+const __VLS_48 = {}.Progress;
+/** @type {[typeof __VLS_components.Progress, ]} */ ;
+// @ts-ignore
+const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
+    percent: (__VLS_ctx.store.airCalProgress),
+    size: "small",
+    status: (__VLS_ctx.store.isAirCalibrating ? 'active' : 'normal'),
+    strokeColor: "#52c41a",
+}));
+const __VLS_50 = __VLS_49({
+    percent: (__VLS_ctx.store.airCalProgress),
+    size: "small",
+    status: (__VLS_ctx.store.isAirCalibrating ? 'active' : 'normal'),
+    strokeColor: "#52c41a",
+}, ...__VLS_functionalComponentArgsRest(__VLS_49));
+const __VLS_52 = {}.Button;
+/** @type {[typeof __VLS_components.Button, typeof __VLS_components.Button, ]} */ ;
+// @ts-ignore
+const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+    ...{ 'onClick': {} },
+    size: "small",
+    disabled: (__VLS_ctx.store.isAirCalibrating || __VLS_ctx.store.airCalProgress === 100),
+}));
+const __VLS_54 = __VLS_53({
+    ...{ 'onClick': {} },
+    size: "small",
+    disabled: (__VLS_ctx.store.isAirCalibrating || __VLS_ctx.store.airCalProgress === 100),
+}, ...__VLS_functionalComponentArgsRest(__VLS_53));
+let __VLS_56;
+let __VLS_57;
+let __VLS_58;
+const __VLS_59 = {
+    onClick: (__VLS_ctx.store.startAirCal)
+};
+__VLS_55.slots.default;
+var __VLS_55;
+const __VLS_60 = {}.Divider;
+/** @type {[typeof __VLS_components.Divider, ]} */ ;
+// @ts-ignore
+const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
+    ...{ style: {} },
+}));
+const __VLS_62 = __VLS_61({
+    ...{ style: {} },
+}, ...__VLS_functionalComponentArgsRest(__VLS_61));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "sidebar-section" },
 });
@@ -208,41 +267,41 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "nav-item active" },
 });
-const __VLS_48 = {}.Activity;
+const __VLS_64 = {}.Activity;
 /** @type {[typeof __VLS_components.Activity, ]} */ ;
 // @ts-ignore
-const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
+const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
     size: (18),
 }));
-const __VLS_50 = __VLS_49({
+const __VLS_66 = __VLS_65({
     size: (18),
-}, ...__VLS_functionalComponentArgsRest(__VLS_49));
+}, ...__VLS_functionalComponentArgsRest(__VLS_65));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "nav-item" },
 });
-const __VLS_52 = {}.Radio;
+const __VLS_68 = {}.Radio;
 /** @type {[typeof __VLS_components.Radio, ]} */ ;
 // @ts-ignore
-const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+const __VLS_69 = __VLS_asFunctionalComponent(__VLS_68, new __VLS_68({
     size: (18),
 }));
-const __VLS_54 = __VLS_53({
+const __VLS_70 = __VLS_69({
     size: (18),
-}, ...__VLS_functionalComponentArgsRest(__VLS_53));
+}, ...__VLS_functionalComponentArgsRest(__VLS_69));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "nav-item" },
 });
-const __VLS_56 = {}.Settings;
+const __VLS_72 = {}.Settings;
 /** @type {[typeof __VLS_components.Settings, ]} */ ;
 // @ts-ignore
-const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
+const __VLS_73 = __VLS_asFunctionalComponent(__VLS_72, new __VLS_72({
     size: (18),
 }));
-const __VLS_58 = __VLS_57({
+const __VLS_74 = __VLS_73({
     size: (18),
-}, ...__VLS_functionalComponentArgsRest(__VLS_57));
+}, ...__VLS_functionalComponentArgsRest(__VLS_73));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "sidebar-footer" },
@@ -261,6 +320,10 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 /** @type {__VLS_StyleScopedClasses['status-info']} */ ;
 /** @type {__VLS_StyleScopedClasses['label']} */ ;
 /** @type {__VLS_StyleScopedClasses['value']} */ ;
+/** @type {__VLS_StyleScopedClasses['status-card']} */ ;
+/** @type {__VLS_StyleScopedClasses['status-icon']} */ ;
+/** @type {__VLS_StyleScopedClasses['status-info']} */ ;
+/** @type {__VLS_StyleScopedClasses['label']} */ ;
 /** @type {__VLS_StyleScopedClasses['status-card']} */ ;
 /** @type {__VLS_StyleScopedClasses['status-icon']} */ ;
 /** @type {__VLS_StyleScopedClasses['status-info']} */ ;
@@ -289,6 +352,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             Zap: Zap,
             ShieldAlert: ShieldAlert,
             Thermometer: Thermometer,
+            Wind: Wind,
             Radio: Radio,
             Settings: Settings,
             Activity: Activity,

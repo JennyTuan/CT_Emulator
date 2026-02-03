@@ -1,24 +1,14 @@
 <script setup lang="ts">
-import { Card, Steps, Button, Progress, List, Badge } from 'ant-design-vue';
-import { Wrench, CheckCircle2, AlertTriangle, Clock } from 'lucide-vue-next';
+import { Card, Button, List, Badge, Tabs } from 'ant-design-vue';
+import { Wrench, Clock } from 'lucide-vue-next';
 import { useSimulatorStore } from '../../store/simulator';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
+import TubeWarmup from './TubeWarmup.vue';
+import AirCalibration from './AirCalibration.vue';
 
 const store = useSimulatorStore();
-const currentStep = ref(1);
+const activeKey = ref('warmup');
 
-const warmUpDescription = computed(() => {
-  if (store.isWarmingUp) return `${store.warmUpProgress}%`;
-  if (store.warmUpProgress === 100) return 'Completed';
-  return 'Pending';
-});
-
-const airCalDescription = computed(() => {
-  if (store.isAirCalibrating) return `${store.airCalProgress}%`;
-  if (store.airCalProgress === 100) return 'Completed';
-  return 'Pending';
-});
-// 测试
 const maintenanceTasks = [
   { title: 'System Calibration', status: 'success', lastRun: '2 hours ago' },
   { title: 'Tube Heat Load Check', status: 'warning', lastRun: '2 days ago' },
@@ -38,36 +28,14 @@ const maintenanceTasks = [
 
     <div class="maintenance-content">
       <div class="workflow-section">
-        <h4 class="section-subtitle">DAILY STARTUP WORKFLOW</h4>
-        <Steps :current="currentStep" size="small" class="custom-steps">
-          <Steps.Step title="Hardware Init" description="Completed" />
-          <Steps.Step title="Tube Warm-up" :description="warmUpDescription" />
-          <Steps.Step title="Air Cal" :description="airCalDescription" />
-          <Steps.Step title="Ready" :description="currentStep === 3 ? 'Ready' : 'Pending'" />
-        </Steps>
-
-        <div class="active-task-progress">
-          <div v-if="store.isWarmingUp || store.warmUpProgress > 0 && store.warmUpProgress < 100">
-            <div class="progress-info">
-              <span>Tube Warm-up</span>
-              <span>{{ store.warmUpProgress }}%</span>
-            </div>
-            <Progress :percent="store.warmUpProgress" size="small" :show-info="false" status="active" />
-          </div>
-          <div v-if="store.isAirCalibrating || store.airCalProgress > 0 && store.airCalProgress < 100" style="margin-top: 12px;">
-            <div class="progress-info">
-              <span>Air Calibration</span>
-              <span>{{ store.airCalProgress }}%</span>
-            </div>
-            <Progress :percent="store.airCalProgress" size="small" :show-info="false" status="active" stroke-color="#52c41a" />
-          </div>
-        </div>
-
-        <div class="step-actions">
-          <Button type="primary" size="small" @click="store.startWarmUp()" :disabled="store.isWarmingUp">START WARM-UP</Button>
-          <Button type="primary" size="small" style="margin-left: 8px" @click="store.startAirCal()" :disabled="store.isAirCalibrating">START AIR CAL</Button>
-          <Button size="small" style="margin-left: 8px" @click="currentStep = 0">RESET</Button>
-        </div>
+        <Tabs v-model:activeKey="activeKey" class="custom-tabs">
+          <Tabs.TabPane key="warmup" tab="球管预热">
+            <TubeWarmup />
+          </Tabs.TabPane>
+          <Tabs.TabPane key="aircal" tab="空气校正">
+            <AirCalibration />
+          </Tabs.TabPane>
+        </Tabs>
       </div>
 
       <div class="tasks-section">
@@ -96,7 +64,7 @@ const maintenanceTasks = [
           <div class="log-entry info">[10:46:05] Exposure completed. Dose: 12.4mGy.</div>
           <div class="log-entry warn">[11:01:28] Tube temperature approaching threshold (75°C).</div>
           <div class="log-entry info">[11:02:15] Motion controller heartbeat OK.</div>
-          <div class="log-entry error" v-if="currentStep === 0">[11:03:00] FATAL: Communication lost with Gantry PLC.</div>
+          <div class="log-entry error" v-if="store.eStopActive">[11:03:00] FATAL: Communication lost with Gantry PLC.</div>
         </div>
       </div>
     </div>
@@ -109,6 +77,10 @@ const maintenanceTasks = [
   color: #fff;
 }
 
+:deep(.ant-card-body) {
+  padding: 0 24px 24px 24px;
+}
+
 .card-title-container {
   display: flex;
   align-items: center;
@@ -118,44 +90,44 @@ const maintenanceTasks = [
 
 .maintenance-content {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.5fr;
+  grid-template-columns: 2fr 1fr 1.2fr;
   gap: 32px;
+}
+
+.custom-tabs {
+  background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 480px;
+}
+
+:deep(.ant-tabs-nav) {
+  margin: 0 !important;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+:deep(.ant-tabs-tab) {
+  padding: 12px 16px !important;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+:deep(.ant-tabs-tab-active) {
+  color: #1890ff !important;
+}
+
+:deep(.ant-tabs-ink-bar) {
+  background: #1890ff !important;
 }
 
 .section-subtitle {
   font-size: 0.75rem;
   color: rgba(255,255,255,0.45);
+  margin-top: 16px;
   margin-bottom: 16px;
   letter-spacing: 1px;
-}
-
-.custom-steps {
-  margin-bottom: 24px;
-}
-
-.active-task-progress {
-  margin-bottom: 24px;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 12px;
-  border-radius: 4px;
-}
-
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  margin-bottom: 4px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-:deep(.ant-steps-item-title) {
-  color: rgba(255,255,255,0.85) !important;
-  font-size: 0.85rem !important;
-}
-
-:deep(.ant-steps-item-description) {
-  color: rgba(255,255,255,0.45) !important;
-  font-size: 0.75rem !important;
 }
 
 .task-item {
@@ -182,11 +154,11 @@ const maintenanceTasks = [
 }
 
 .log-viewport {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid #1f1f1f;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 4px;
   padding: 12px;
-  height: 140px;
+  height: 430px;
   overflow-y: auto;
   font-family: 'Consolas', monospace;
   font-size: 0.75rem;
