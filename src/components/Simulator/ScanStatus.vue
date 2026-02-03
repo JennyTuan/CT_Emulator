@@ -4,6 +4,11 @@ import { computed } from 'vue';
 
 const store = useSimulatorStore();
 
+// Safety: ensure scanPhase is initialized
+if (!store.scanPhase) {
+  (store.scanPhase as any) = 'idle';
+}
+
 const progressPercent = computed(() => {
   return Math.round((store.currentSlice / store.totalSlices) * 100);
 });
@@ -70,45 +75,72 @@ const historyData = [
             </div>
           </v-alert>
 
-          <div class="action-buttons mb-6 d-flex flex-wrap gap-2">
+          <!-- Row 1: Sequential Process Buttons -->
+          <div class="action-buttons mb-3 d-flex gap-2">
+            <!-- 1. START SCAN (PREPARE) -->
             <v-btn 
               color="primary" 
               size="large" 
-              :disabled="store.scanStatus === 'scanning' || store.eStopActive"
-              @click="store.startScan"
-              prepend-icon="mdi-play"
+              :disabled="(store.scanPhase !== 'idle' && store.scanPhase !== 'error' && !!store.scanPhase) && !store.eStopActive"
+              @click="store.prepareScan"
+              prepend-icon="mdi-play-circle-outline"
               class="flex-grow-1"
             >
-              START SCAN
+              {{ store.scanPhase === 'error' ? 'RESTART' : 'START SCAN' }}
             </v-btn>
 
+            <!-- 2. ENABLE -->
+            <v-btn 
+              color="indigo" 
+              size="large" 
+              :disabled="store.scanPhase !== 'prepared' || store.eStopActive"
+              @click="store.enableScan"
+              :loading="store.scanPhase === 'enabling'"
+              prepend-icon="mdi-power-plug"
+              class="flex-grow-1"
+            >
+              使 能 (ENABLE)
+            </v-btn>
+
+            <!-- 3. EXPOSURE -->
+            <v-btn 
+              color="deep-orange" 
+              size="large" 
+              :disabled="store.scanPhase !== 'enabled' || store.eStopActive"
+              @click="store.startExposure"
+              :loading="store.scanPhase === 'exposing'"
+              prepend-icon="mdi-ray-start"
+              class="flex-grow-1"
+            >
+              曝 光 (EXPOSURE)
+            </v-btn>
+          </div>
+
+          <!-- Row 2: System Safety & Testing -->
+          <div class="action-buttons mb-6 d-flex gap-2">
             <v-menu location="top">
               <template v-slot:activator="{ props }">
                 <v-btn
-                  color="error"
+                  color="warning"
                   variant="tonal"
                   size="large"
-                  prepend-icon="mdi-alert-circle"
+                  prepend-icon="mdi-bug"
                   v-bind="props"
-                  :disabled="store.scanStatus !== 'scanning'"
+                  :disabled="store.scanPhase === 'idle' || store.scanPhase === 'error' || !store.scanPhase"
                   class="flex-grow-1"
                 >
-                  FAULT SIM
+                  故障模拟 (FAULT SIM)
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-subheader>SIMULATE SCAN FAULT</v-list-subheader>
-                <v-list-item @click="store.failScan('enabling')">
-                  <v-list-item-title>使能故障 (Enable Fault)</v-list-item-title>
+                <v-list-subheader>注入随机故障</v-list-subheader>
+                <v-list-item @click="store.failScan">
+                  <template v-slot:prepend><v-icon color="error">mdi-flash-off</v-icon></template>
+                  <v-list-item-title>模拟硬件链路故障</v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="store.failScan('exposing')">
-                  <v-list-item-title>曝光故障 (Exposure Fault)</v-list-item-title>
-                </v-list-item>
-                <v-list-item @click="store.failScan('reconstructing')">
-                  <v-list-item-title>出图故障 (Recon Fault)</v-list-item-title>
-                </v-list-item>
-                <v-list-item @click="store.failScan('finishing')">
-                  <v-list-item-title>结束故障 (Finish Fault)</v-list-item-title>
+                <v-list-item @click="store.failScan">
+                  <template v-slot:prepend><v-icon color="error">mdi-rays-close</v-icon></template>
+                  <v-list-item-title>模拟射线发生器报警</v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-menu>
