@@ -3,6 +3,7 @@ import { useSimulatorStore } from '../../store/simulator';
 import { ref } from 'vue';
 import TubeWarmup from './TubeWarmup.vue';
 import AirCalibration from './AirCalibration.vue';
+import DailyQA from './DailyQA.vue';
 
 const store = useSimulatorStore();
 const activeKey = ref('warmup');
@@ -28,6 +29,7 @@ const maintenanceTasks = [
           <v-tabs v-model="activeKey" color="primary" class="custom-tabs-nav mb-4">
             <v-tab value="warmup">球管预热</v-tab>
             <v-tab value="aircal">空气校正</v-tab>
+            <v-tab value="dailyqa">日常QA</v-tab>
           </v-tabs>
           
           <v-tabs-window v-model="activeKey" class="custom-tabs-content">
@@ -36,6 +38,9 @@ const maintenanceTasks = [
             </v-tabs-window-item>
             <v-tabs-window-item value="aircal">
               <AirCalibration />
+            </v-tabs-window-item>
+            <v-tabs-window-item value="dailyqa">
+              <DailyQA />
             </v-tabs-window-item>
           </v-tabs-window>
         </div>

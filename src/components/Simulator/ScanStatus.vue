@@ -124,7 +124,10 @@ const historyData = [
             >
               曝 光 (EXPOSURE)
             </v-btn>
+          </div>
 
+          <!-- Row 2: Post-Scan & Safety -->
+          <div class="action-buttons mb-6 d-flex gap-2">
             <!-- 4. RECONSTRUCTION -->
             <v-btn 
               color="teal" 
@@ -137,10 +140,7 @@ const historyData = [
             >
               出 图 (RECON)
             </v-btn>
-          </div>
 
-          <!-- Row 2: Safety -->
-          <div class="action-buttons mb-6 d-flex gap-2">
             <v-menu location="top">
               <template v-slot:activator="{ props }">
                 <v-btn
