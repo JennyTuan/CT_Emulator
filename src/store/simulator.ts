@@ -38,6 +38,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     // --- SCAN MACHINE ---
     const scanPhase = ref<ScanPhase>('idle')
     const scanStatus = ref<'idle' | 'ready' | 'scanning' | 'error'>('idle')
+    const errorMessage = ref('')
     const currentSlice = ref(0)
     const totalSlices = ref(500)
     const exposureActive = ref(false)
@@ -48,10 +49,11 @@ export const useSimulatorStore = defineStore('simulator', () => {
         laserOn.value = !laserOn.value
     }
 
-    const triggerEStop = () => {
+    const triggerEStop = (msg: string = 'EMERGENCY STOP ACTIVE') => {
         eStopActive.value = true
         scanStatus.value = 'error'
         scanPhase.value = 'error'
+        errorMessage.value = msg
         isMoving.value = false
         exposureActive.value = false
         if (warmUpStatus.value === 'running') failWarmUp()
@@ -61,6 +63,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
     const resetEStop = () => {
         eStopActive.value = false
+        errorMessage.value = ''
         if (scanPhase.value === 'error') {
             scanPhase.value = 'idle'
             scanStatus.value = 'idle'
@@ -248,8 +251,8 @@ export const useSimulatorStore = defineStore('simulator', () => {
         }
     }
 
-    const failScan = () => {
-        triggerEStop()
+    const failScan = (msg?: string) => {
+        triggerEStop(msg)
     }
 
     const resetSystem = () => {
@@ -263,7 +266,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
-        scanStatus, scanPhase, currentSlice, totalSlices, exposureActive,
+        scanStatus, scanPhase, errorMessage, currentSlice, totalSlices, exposureActive,
 
         // Actions
         toggleLaser, triggerEStop, resetEStop,

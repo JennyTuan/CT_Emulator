@@ -95,6 +95,43 @@ const historyData = ref([
 
 const selectedId = ref('1');
 const selectedActivity = computed(() => historyData.value.find(item => item.id === selectedId.value));
+
+const faultCategories = [
+  {
+    title: '1. 流程前置连锁类 (Interlock & Ready)',
+    errors: [
+      { label: 'Door Open (中途开门)', msg: '请关闭扫描间门 (Interlock Fault)' },
+      { label: 'E-Stop Active (物理急停)', msg: '机架/手控盒急停已被按下' },
+      { label: 'Tube Cold (球管未预热)', msg: '球管热容量过低，请先执行预热' },
+      { label: 'Collision Sensor (防碰撞触发)', msg: '床位防碰撞传感器检测到障碍物' }
+    ]
+  },
+  {
+    title: '2. 执行与放射安全类 (Execution & Radiation)',
+    errors: [
+      { label: 'HV Generator Fault (高压发生器故障)', msg: '高压发生器严重击穿 (Critical Hardware Failure)' },
+      { label: 'Exposure Timeout (曝光超时)', msg: '曝光反馈信号丢失 (Feedback Timeout)' },
+      { label: 'KVP/mA Out of Range (参数超差)', msg: '实际管电压/电流输出严重偏离设定值' },
+      { label: 'Rotation Sync Error (旋转同步错误)', msg: '机架旋转脉冲同步丢失' }
+    ]
+  },
+  {
+    title: '3. 图像与数据链路类 (Data & Recon)',
+    errors: [
+      { label: 'Slip-Ring Data Drop (滑环丢包)', msg: '滑环光纤通讯干扰导致View丢失' },
+      { label: 'DAS Buffer Overflow (采集缓存溢出)', msg: 'DAS数据流拥塞 (Buffer Overflow)' },
+      { label: 'Recon Heartbeat Lost (重建节点断连)', msg: '重建服务器失去心跳' }
+    ]
+  },
+  {
+    title: '4. 系统全局与紧急状态 (Systemic)',
+    errors: [
+      { label: 'Bus Communication Error (总线通讯错误)', msg: 'CAN-Bus/Ethernet总线瘫痪 (Disconnection)' },
+      { label: 'Fatal Power Error (系统掉电)', msg: '底层板卡意外掉电，状态重置' }
+    ]
+  }
+];
+
 </script>
 
 
@@ -144,13 +181,18 @@ const selectedActivity = computed(() => historyData.value.find(item => item.id =
             <div class="d-flex align-center justify-space-between">
               <div class="d-flex align-center">
                 <span class="label mr-3">CURRENT STATE:</span>
-                <span class="value">{{ (store.scanStatus || 'idle').toUpperCase() }}</span>
+                <span class="value">{{ store.scanStatus === 'error' ? 'ALARM / ERROR' : (store.scanStatus || 'idle').toUpperCase() }}</span>
               </div>
               <v-chip v-if="store.scanPhase && store.scanPhase !== 'idle'" size="small" :color="scanStatusColor" variant="flat">
                 PHASE: {{ store.scanPhase.toUpperCase() }}
               </v-chip>
             </div>
+            <div v-if="store.errorMessage" class="error-detail-text mt-1 text-uppercase font-weight-bold">
+              <v-icon size="small" class="mr-1">mdi-alert-circle</v-icon>
+              {{ store.errorMessage }}
+            </div>
           </v-alert>
+
 
           <!-- Row 1: Sequential Process Buttons -->
           <div class="action-buttons mb-3 d-flex gap-2">
@@ -208,7 +250,7 @@ const selectedActivity = computed(() => historyData.value.find(item => item.id =
               出 图 (RECON)
             </v-btn>
 
-            <v-menu location="top">
+            <v-menu location="top" width="350">
               <template v-slot:activator="{ props }">
                 <v-btn
                   color="warning"
@@ -222,17 +264,18 @@ const selectedActivity = computed(() => historyData.value.find(item => item.id =
                   故障模拟 (FAULT SIM)
                 </v-btn>
               </template>
-              <v-list density="compact">
-                <v-list-item @click="store.failScan">
-                  <template v-slot:prepend><v-icon color="error">mdi-flash-off</v-icon></template>
-                  <v-list-item-title>模拟硬件链路故障</v-list-item-title>
-                </v-list-item>
-                <v-list-item @click="store.failScan">
-                  <template v-slot:prepend><v-icon color="error">mdi-rays-close</v-icon></template>
-                  <v-list-item-title>模拟射线发生器报警</v-list-item-title>
-                </v-list-item>
+              <v-list density="compact" class="fault-menu-list">
+                <template v-for="(cat, idx) in faultCategories" :key="idx">
+                  <v-list-subheader class="font-weight-bold text-primary">{{ cat.title }}</v-list-subheader>
+                  <v-list-item v-for="err in cat.errors" :key="err.label" @click="store.failScan(err.msg)">
+                    <template v-slot:prepend><v-icon color="error" size="small">mdi-alert-outline</v-icon></template>
+                    <v-list-item-title class="text-caption">{{ err.label }}</v-list-item-title>
+                  </v-list-item>
+                  <v-divider v-if="idx < faultCategories.length - 1"></v-divider>
+                </template>
               </v-list>
             </v-menu>
+
 
             <v-btn 
               color="error" 
@@ -404,6 +447,39 @@ const selectedActivity = computed(() => historyData.value.find(item => item.id =
                 </div>
               </v-col>
             </v-row>
+
+            <!-- Patient Scan Image Preview -->
+            <div v-if="selectedActivity.status === 'Completed'" class="mt-6">
+              <div class="d-flex align-center mb-3">
+                <v-icon color="success" class="mr-2">mdi-image-search</v-icon>
+                <span class="text-subtitle-2 font-weight-bold">已完成扫描图像 (Key Image)</span>
+              </div>
+              <div class="image-preview-card pa-2 rounded border d-flex flex-column align-center">
+                <div class="preview-viewport rounded overflow-hidden mb-2">
+                  <v-img
+                    :src="selectedActivity.protocol.includes('Chest') ? 'https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=400' : 
+                          selectedActivity.protocol.includes('Head') ? 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?q=80&w=400' :
+                          'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?q=80&w=400'"
+                    width="300"
+                    height="300"
+                    cover
+                    class="grayscale-ct"
+                  >
+                    <div class="dicom-tags pa-2">
+                      <div class="tag">PATIENT: {{ selectedActivity.patientId }}</div>
+                      <div class="tag">DOB: 1985/05/12</div>
+                      <div class="tag top-right">SLICE: 125/256</div>
+                      <div class="tag bottom-right">{{ selectedId === '1' ? 'KERNEL: Standard' : 'KERNEL: Brain' }}</div>
+                    </div>
+                  </v-img>
+                </div>
+                <div class="d-flex gap-2">
+                  <v-btn size="x-small" prepend-icon="mdi-magnify-plus" variant="tonal">ZOOM</v-btn>
+                  <v-btn size="x-small" prepend-icon="mdi-contrast-circle" variant="tonal">W/L ADJ</v-btn>
+                  <v-btn size="x-small" prepend-icon="mdi-film" variant="tonal">SCROLL</v-btn>
+                </div>
+              </div>
+            </div>
           </div>
 
         </v-expand-transition>
@@ -586,6 +662,52 @@ const selectedActivity = computed(() => historyData.value.find(item => item.id =
   font-weight: bold;
   color: rgb(var(--v-theme-primary));
 }
+
+.error-detail-text {
+  font-size: 0.75rem;
+  color: #fff;
+  background: rgba(var(--v-theme-error), 0.8);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.fault-menu-list {
+  background: rgba(var(--v-theme-surface), 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.image-preview-card {
+  background: #000;
+  border-color: #333 !important;
+}
+
+.preview-viewport {
+  position: relative;
+  background: #000;
+}
+
+.grayscale-ct {
+  filter: grayscale(1) contrast(1.2);
+}
+
+.dicom-tags {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tag {
+  color: #00ff00;
+  font-family: 'Consolas', monospace;
+  font-size: 0.65rem;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.tag.top-right { position: absolute; top: 8px; right: 8px; }
+.tag.bottom-right { position: absolute; bottom: 8px; right: 8px; }
 
 .recon-plan-card {
   background: rgba(var(--v-theme-on-surface), 0.02);
