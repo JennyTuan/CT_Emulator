@@ -1,8 +1,25 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const store = useSimulatorStore();
+
+const warmUpFaultOptions = [
+  { title: '清空选择', code: 'clear' },
+  { title: '联锁未闭合/门联锁触发', code: 'interlock_open' },
+  { title: '灯丝电流异常/加热失败', code: 'filament_current_error' },
+  { title: '转子未起转/转速异常', code: 'rotor_speed_error' },
+  { title: '阳极轴承过温/磨损', code: 'anode_bearing_overheat' },
+  { title: '油冷/风冷不足导致过温', code: 'cooling_overtemp' },
+  { title: '高压使能失败/电源故障', code: 'hv_enable_fail' },
+  { title: '球管壳温传感器异常', code: 'tube_temp_sensor_error' },
+  { title: '发电机自检失败', code: 'generator_selftest_fail' }
+];
+
+const selectedWarmUpFault = ref<string | null>(null);
+const warmUpFaultLabel = computed(() =>
+  selectedWarmUpFault.value ? '模拟故障：已选择' : '模拟故障'
+);
 
 const statusColor = computed(() => {
   switch (store.warmUpStatus) {
@@ -104,15 +121,41 @@ const statusColor = computed(() => {
         恢复
       </v-btn>
 
-      <v-btn
+      <v-menu
         v-if="store.warmUpStatus === 'running' || store.warmUpStatus === 'paused'"
-        color="error"
-        variant="tonal"
-        @click="store.failWarmUp"
-        prepend-icon="mdi-alert-circle"
+        location="bottom end"
       >
-        模拟故障
-      </v-btn>
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            color="error"
+            variant="tonal"
+            prepend-icon="mdi-alert-circle"
+          >
+            {{ warmUpFaultLabel }}
+          </v-btn>
+        </template>
+        <v-list density="compact" class="fault-menu">
+          <v-list-item
+            v-for="item in warmUpFaultOptions"
+            :key="item.code"
+            @click="
+              selectedWarmUpFault = item.code === 'clear' ? null : item.title;
+              if (item.code === 'clear') {
+                store.addLog('info', '球管预热故障选择已清空');
+              } else {
+                store.addLog('error', `球管预热模拟故障：${item.title}`);
+                store.failWarmUp();
+              }
+            "
+          >
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+            <template v-slot:append>
+              <v-icon v-if="selectedWarmUpFault === item.title">mdi-check</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-menu>
 
       <v-btn
         variant="outlined"
@@ -168,5 +211,9 @@ const statusColor = computed(() => {
   height: 48px;
   padding: 0 40px;
   font-size: 1.1rem;
+}
+
+.fault-menu {
+  min-width: 280px;
 }
 </style>

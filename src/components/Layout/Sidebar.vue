@@ -114,14 +114,6 @@ const airCalColor = computed(() => {
         <v-icon size="small" class="mr-2">mdi-monitor-dashboard</v-icon>
         <span>Hardware Dashboard</span>
       </div>
-      <div class="nav-item">
-        <v-icon size="small" class="mr-2">mdi-radio-tower</v-icon>
-        <span>RF Subsystem</span>
-      </div>
-      <div class="nav-item">
-        <v-icon size="small" class="mr-2">mdi-cog</v-icon>
-        <span>Service Mode</span>
-      </div>
     </div>
 
     <div class="sidebar-footer">

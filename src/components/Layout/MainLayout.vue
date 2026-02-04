@@ -74,8 +74,6 @@ onMounted(() => {
       </v-container>
     </v-main>
 
-    <v-footer app border height="40" class="footer-custom px-4">
-    </v-footer>
   </v-layout>
 </template>
 

@@ -103,6 +103,10 @@ export const useSimulatorStore = defineStore('simulator', () => {
         }
     }
 
+    const clearLogs = () => {
+        logs.value = []
+    }
+
     const applyTubeHeat = (delta: number) => {
         tubeTemp.value = Math.max(TUBE_TEMP_AMBIENT, tubeTemp.value + delta)
         if (tubeTemp.value >= TUBE_TEMP_MAX) {
@@ -450,7 +454,9 @@ export const useSimulatorStore = defineStore('simulator', () => {
         toggleLaser, triggerEStop, resetEStop,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, setMotionFault, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem
+        moveGantry, setMotionFault, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem,
+        addLog,
+        clearLogs
     }
 }, {
     persist: true // RESTORE PERSISTENCE

@@ -68,7 +68,17 @@ const statusClass = (status: string) =>
         </div>
 
         <div class="logs-section">
-          <h4 class="section-subtitle">SYSTEM LOGS (REAL-TIME)</h4>
+          <div class="logs-header">
+            <h4 class="section-subtitle">SYSTEM LOGS (REAL-TIME)</h4>
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              prepend-icon="mdi-trash-can-outline"
+              @click="store.clearLogs()"
+            >
+              清空
+            </v-btn>
+          </div>
           <div class="log-viewport">
             <div v-if="store.logs.length === 0" class="log-empty">暂无日志</div>
             <div
@@ -116,6 +126,12 @@ const statusClass = (status: string) =>
 .logs-section {
   flex: 1.2;
   min-width: 0;
+}
+
+.logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .custom-tabs-nav {

@@ -78,6 +78,24 @@ const qaTests = ref<QATest[]>([
   },
 ]);
 
+const dailyQaFaultOptions = [
+  { title: '清空选择', code: 'clear' },
+  { title: '水模定位偏差/未居中', code: 'phantom_position_error' },
+  { title: '水HU超范围', code: 'water_hu_out_of_range' },
+  { title: '空气HU超范围', code: 'air_hu_out_of_range' },
+  { title: '噪声偏高', code: 'noise_high' },
+  { title: '均匀性不合格', code: 'uniformity_fail' },
+  { title: '环形伪影明显', code: 'ring_artifact' },
+  { title: '空间分辨率下降', code: 'spatial_resolution_low' },
+  { title: '层厚偏差超限', code: 'slice_thickness_error' },
+  { title: '床板运动误差/抖动', code: 'table_motion_error' }
+];
+
+const selectedDailyQaFault = ref<string | null>(null);
+const dailyQaFaultLabel = computed(() =>
+  selectedDailyQaFault.value ? '模拟故障：已选择' : '模拟故障'
+);
+
 const runningQA = ref(false);
 const currentTestIndex = ref(-1);
 
@@ -235,7 +253,9 @@ const getStatusIcon = (status: string) => {
             <v-btn
               v-else-if="!runningQA"
               size="x-small"
-              variant="text"
+              variant="tonal"
+              rounded="pill"
+              class="run-test-btn"
               color="primary"
               @click="runSingleTest(test)"
             >
@@ -251,18 +271,57 @@ const getStatusIcon = (status: string) => {
       <v-btn
         color="primary"
         size="large"
+        variant="flat"
+        rounded="pill"
+        class="flex-grow-1 qa-primary-btn"
         :disabled="runningQA"
         :loading="runningQA"
         @click="startQA"
         prepend-icon="mdi-play-circle-outline"
-        class="flex-grow-1"
       >
         开始全部QA测试
       </v-btn>
+      <v-menu location="bottom end">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            color="error"
+            size="large"
+            variant="tonal"
+            rounded="pill"
+            class="qa-fault-btn"
+            :disabled="runningQA"
+            prepend-icon="mdi-alert-circle"
+          >
+            {{ dailyQaFaultLabel }}
+          </v-btn>
+        </template>
+        <v-list density="compact" class="fault-menu">
+          <v-list-item
+            v-for="item in dailyQaFaultOptions"
+            :key="item.code"
+            @click="
+              selectedDailyQaFault = item.code === 'clear' ? null : item.title;
+              if (item.code === 'clear') {
+                store.addLog('info', '日常QA故障选择已清空');
+              } else {
+                store.addLog('warn', `日常QA模拟故障：${item.title}`);
+              }
+            "
+          >
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+            <template v-slot:append>
+              <v-icon v-if="selectedDailyQaFault === item.title">mdi-check</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-menu>
       <v-btn
         color="grey"
         size="large"
         variant="tonal"
+        rounded="pill"
+        class="qa-secondary-btn"
         :disabled="runningQA || completedTests === 0"
         @click="resetQA"
         prepend-icon="mdi-refresh"
@@ -397,5 +456,35 @@ const getStatusIcon = (status: string) => {
 
 .qa-controls {
   margin-top: 16px;
+  gap: 12px;
+}
+
+.qa-primary-btn {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  box-shadow: 0 10px 20px rgba(var(--v-theme-primary), 0.25);
+}
+
+.qa-secondary-btn {
+  font-weight: 600;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.run-test-btn {
+  font-weight: 600;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.qa-fault-btn {
+  font-weight: 600;
+  text-transform: none;
+  box-shadow: 0 8px 18px rgba(var(--v-theme-error), 0.2);
+}
+
+.fault-menu {
+  min-width: 280px;
 }
 </style>
