@@ -46,6 +46,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const outOfSync = ref(false)
     const heartbeatLost = ref(false)
     const responseDelay = ref(0) // ms
+    const faultSimActive = ref(false) // Track if fault simulation is active
 
     const currentSlice = ref(0)
     const totalSlices = ref(500)
@@ -72,6 +73,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
     const resetEStop = () => {
         eStopActive.value = false
+        faultSimActive.value = false
         errorMessage.value = ''
         if (scanPhase.value === 'error') {
             scanPhase.value = 'idle'
@@ -295,6 +297,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
 
     const failScan = (msg?: string) => {
+        faultSimActive.value = true
         triggerEStop(msg)
     }
 
@@ -310,7 +313,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
         scanStatus, scanPhase, errorMessage,
-        motionLimitFault, gantryStuck, outOfSync, heartbeatLost, responseDelay,
+        motionLimitFault, gantryStuck, outOfSync, heartbeatLost, responseDelay, faultSimActive,
         currentSlice, totalSlices, exposureActive,
 
         // Actions

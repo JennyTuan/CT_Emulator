@@ -128,7 +128,15 @@ const faultCategories = [
     ]
   },
   {
-    title: '3. 图像与数据链路类 (Data & Recon)',
+    title: '3. 激光灯系统 (Laser System)',
+    errors: [
+      { label: 'Laser Power Failure (激光电源故障)', msg: '激光灯电源模块异常 (Power Module Fault)' },
+      { label: 'Laser Alignment Error (激光对准失败)', msg: '激光灯校准数据丢失或偏移' },
+      { label: 'Laser Interlock (激光安全联锁)', msg: '激光安全门未关闭或传感器故障' }
+    ]
+  },
+  {
+    title: '4. 图像与数据链路类 (Data & Recon)',
     errors: [
       { label: 'Slip-Ring Data Drop (滑环丢包)', msg: '滑环光纤通讯干扰导致View丢失' },
       { label: 'DAS Buffer Overflow (采集缓存溢出)', msg: 'DAS数据流拥塞 (Buffer Overflow)' },
@@ -136,7 +144,7 @@ const faultCategories = [
     ]
   },
   {
-    title: '4. 系统全局与紧急状态 (Systemic)',
+    title: '5. 系统全局与紧急状态 (Systemic)',
     errors: [
       { label: 'Bus Communication Error (总线通讯错误)', msg: 'CAN-Bus/Ethernet总线瘫痪 (Disconnection)' },
       { label: 'Fatal Power Error (系统掉电)', msg: '底层板卡意外掉电，状态重置' }
@@ -265,12 +273,11 @@ const faultCategories = [
             <v-menu location="top" width="350">
               <template v-slot:activator="{ props }">
                 <v-btn
-                  color="warning"
-                  variant="tonal"
+                  :color="store.faultSimActive ? 'error' : 'warning'"
+                  :variant="store.faultSimActive ? 'elevated' : 'tonal'"
                   size="large"
                   prepend-icon="mdi-bug"
                   v-bind="props"
-                  :disabled="!store.scanPhase || store.scanPhase === 'idle' || store.scanPhase === 'error'"
                   class="flex-grow-1"
                 >
                   故障模拟 (FAULT SIM)
