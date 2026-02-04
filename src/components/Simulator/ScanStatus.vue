@@ -30,6 +30,10 @@ const historyData = ref([
     time: '10:45:12', 
     protocol: 'Chest Routine', 
     patientId: 'PID-2024-001', 
+    patientName: 'ZHANG SAN',
+    gender: 'M',
+    age: '45Y',
+    weight: '75kg',
     dose: '12.4 mGy', 
     status: 'Completed',
     params: {
@@ -52,6 +56,10 @@ const historyData = ref([
     time: '10:30:45', 
     protocol: 'Head Non-Contrast', 
     patientId: 'PID-2024-002', 
+    patientName: 'LI SI',
+    gender: 'F',
+    age: '62Y',
+    weight: '58kg',
     dose: '45.2 mGy', 
     status: 'Completed',
     params: {
@@ -74,6 +82,10 @@ const historyData = ref([
     time: '10:15:22', 
     protocol: 'Abdomen/Pelvis', 
     patientId: 'PID-2024-003', 
+    patientName: 'WANG WU',
+    gender: 'M',
+    age: '30Y',
+    weight: '82kg',
     dose: '18.1 mGy', 
     status: 'Cancelled',
     params: {
@@ -200,7 +212,7 @@ const faultCategories = [
             <v-btn 
               color="primary" 
               size="large" 
-              :disabled="(store.scanPhase !== 'idle' && store.scanPhase !== 'error' && !!store.scanPhase) && !store.eStopActive"
+              :disabled="((store.scanPhase !== 'idle' && store.scanPhase !== 'error' && !!store.scanPhase) && !store.eStopActive) || store.heartbeatLost"
               @click="handleStart"
               prepend-icon="mdi-play-circle-outline"
               class="flex-grow-1"
@@ -212,7 +224,7 @@ const faultCategories = [
             <v-btn 
               color="indigo" 
               size="large" 
-              :disabled="store.scanPhase !== 'prepared' || store.eStopActive"
+              :disabled="store.scanPhase !== 'prepared' || store.eStopActive || store.heartbeatLost"
               @click="store.enableScan"
               :loading="store.scanPhase === 'enabling'"
               prepend-icon="mdi-power-plug"
@@ -225,7 +237,7 @@ const faultCategories = [
             <v-btn 
               color="deep-orange" 
               size="large" 
-              :disabled="store.scanPhase !== 'enabled' || store.eStopActive"
+              :disabled="store.scanPhase !== 'enabled' || store.eStopActive || store.heartbeatLost"
               @click="store.startExposure"
               :loading="store.scanPhase === 'exposing'"
               prepend-icon="mdi-ray-start"
@@ -241,7 +253,7 @@ const faultCategories = [
             <v-btn 
               color="teal" 
               size="large" 
-              :disabled="store.scanPhase !== 'exposed' || store.eStopActive"
+              :disabled="store.scanPhase !== 'exposed' || store.eStopActive || store.heartbeatLost"
               @click="store.startRecon"
               :loading="store.scanPhase === 'reconstructing'"
               prepend-icon="mdi-image-filter-hdr"
@@ -293,22 +305,25 @@ const faultCategories = [
 
       <div class="scan-history mt-6">
         <div class="d-flex align-center justify-space-between mb-3">
-          <h4 class="history-title">RECENT ACTIVITY</h4>
+          <h4 class="history-title">最近活动</h4>
           <div style="width: 240px">
-            <v-select
+            <v-combobox
               v-model="selectedId"
               :items="historyData"
               item-title="patientId"
               item-value="id"
               density="compact"
-              label="Select Patient"
+              label="查询"
+              prepend-inner-icon="mdi-magnify"
               hide-details
               variant="outlined"
+              :return-object="false"
+              clearable
             >
               <template v-slot:item="{ props, item }">
                 <v-list-item v-bind="props" :subtitle="item.raw.protocol"></v-list-item>
               </template>
-            </v-select>
+            </v-combobox>
           </div>
         </div>
 
@@ -348,15 +363,54 @@ const faultCategories = [
         </v-table>
 
         <!-- Protocol Details Panel -->
-        <v-expand-transition>
-          <div v-if="selectedActivity" class="protocol-details-panel pa-4 rounded">
-            <div class="d-flex align-center mb-4">
-              <v-icon color="primary" class="mr-2">mdi-flask-outline</v-icon>
-              <span class="text-subtitle-1 font-weight-bold">协议参数详情: {{ selectedActivity.protocol }}</span>
-              <v-chip size="small" color="primary" variant="tonal" class="ml-4">
-                {{ selectedActivity.params.type }}模式
-              </v-chip>
-            </div>
+          <v-expand-transition>
+            <div v-if="selectedActivity" class="protocol-details-panel pa-4 rounded">
+              
+              <!-- Patient Info Section -->
+              <div class="patient-info-banner mb-6 pa-3 rounded border">
+                <div class="d-flex align-center mb-2">
+                  <v-icon color="primary" class="mr-2">mdi-account-details</v-icon>
+                  <span class="text-subtitle-2 font-weight-bold">患者基本信息</span>
+                </div>
+                <v-row dense>
+                  <v-col cols="3">
+                    <div class="info-item">
+                      <span class="info-label">姓名:</span>
+                      <span class="info-value">{{ selectedActivity.patientName }}</span>
+                    </div>
+                  </v-col>
+                  <v-col cols="3">
+                    <div class="info-item">
+                      <span class="info-label">性别:</span>
+                      <span class="info-value">{{ selectedActivity.gender === 'M' ? '男 (Male)' : '女 (Female)' }}</span>
+                    </div>
+                  </v-col>
+                  <v-col cols="2">
+                    <div class="info-item">
+                      <span class="info-label">年龄:</span>
+                      <span class="info-value">{{ selectedActivity.age }}</span>
+                    </div>
+                  </v-col>
+                  <v-col cols="2">
+                    <div class="info-item">
+                      <span class="info-label">体重:</span>
+                      <span class="info-value">{{ selectedActivity.weight }}</span>
+                    </div>
+                  </v-col>
+                  <v-col cols="2">
+                    <div class="info-item text-right">
+                      <span class="info-label">ID:</span>
+                      <span class="info-value text-caption">{{ selectedActivity.patientId }}</span>
+                    </div>
+                  </v-col>
+                </v-row>
+              </div>
+
+              <div class="d-flex align-center mb-3">
+                <v-icon color="primary" class="mr-2">mdi-clipboard-text-outline</v-icon>
+                <span class="text-subtitle-2 font-weight-bold">协议参数详情: {{ selectedActivity.protocol }}</span>
+                <v-chip size="small" color="primary" variant="flat" class="ml-2">{{ selectedActivity.params.type }}模式</v-chip>
+              </div>
             
             <v-row dense>
               <v-col cols="3">
@@ -448,38 +502,7 @@ const faultCategories = [
               </v-col>
             </v-row>
 
-            <!-- Patient Scan Image Preview -->
-            <div v-if="selectedActivity.status === 'Completed'" class="mt-6">
-              <div class="d-flex align-center mb-3">
-                <v-icon color="success" class="mr-2">mdi-image-search</v-icon>
-                <span class="text-subtitle-2 font-weight-bold">已完成扫描图像 (Key Image)</span>
-              </div>
-              <div class="image-preview-card pa-2 rounded border d-flex flex-column align-center">
-                <div class="preview-viewport rounded overflow-hidden mb-2">
-                  <v-img
-                    :src="selectedActivity.protocol.includes('Chest') ? 'https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=400' : 
-                          selectedActivity.protocol.includes('Head') ? 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?q=80&w=400' :
-                          'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?q=80&w=400'"
-                    width="300"
-                    height="300"
-                    cover
-                    class="grayscale-ct"
-                  >
-                    <div class="dicom-tags pa-2">
-                      <div class="tag">PATIENT: {{ selectedActivity.patientId }}</div>
-                      <div class="tag">DOB: 1985/05/12</div>
-                      <div class="tag top-right">SLICE: 125/256</div>
-                      <div class="tag bottom-right">{{ selectedId === '1' ? 'KERNEL: Standard' : 'KERNEL: Brain' }}</div>
-                    </div>
-                  </v-img>
-                </div>
-                <div class="d-flex gap-2">
-                  <v-btn size="x-small" prepend-icon="mdi-magnify-plus" variant="tonal">ZOOM</v-btn>
-                  <v-btn size="x-small" prepend-icon="mdi-contrast-circle" variant="tonal">W/L ADJ</v-btn>
-                  <v-btn size="x-small" prepend-icon="mdi-film" variant="tonal">SCROLL</v-btn>
-                </div>
-              </div>
-            </div>
+
           </div>
 
         </v-expand-transition>
@@ -661,6 +684,27 @@ const faultCategories = [
   font-size: 0.9rem;
   font-weight: bold;
   color: rgb(var(--v-theme-primary));
+}
+
+.patient-info-banner {
+  background: rgba(var(--v-theme-primary), 0.05);
+  border-color: rgba(var(--v-theme-primary), 0.1) !important;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  font-size: 0.65rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+}
+
+.info-value {
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .error-detail-text {

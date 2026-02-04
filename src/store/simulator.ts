@@ -39,6 +39,14 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const scanPhase = ref<ScanPhase>('idle')
     const scanStatus = ref<'idle' | 'ready' | 'scanning' | 'error'>('idle')
     const errorMessage = ref('')
+
+    // --- MOTION FAULTS & GLOBAL ---
+    const motionLimitFault = ref(false)
+    const gantryStuck = ref(false)
+    const outOfSync = ref(false)
+    const heartbeatLost = ref(false)
+    const responseDelay = ref(0) // ms
+
     const currentSlice = ref(0)
     const totalSlices = ref(500)
     const exposureActive = ref(false)
@@ -56,6 +64,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         errorMessage.value = msg
         isMoving.value = false
         exposureActive.value = false
+        gantryStuck.value = false // Reset stuck on estop
         if (warmUpStatus.value === 'running') failWarmUp()
         if (airCalStatus.value === 'running') failAirCal()
         if (scanInterval) clearInterval(scanInterval)
@@ -173,11 +182,45 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
     // --- ACTIONS: MOTION ---
     const moveGantry = (pos: number) => {
+        if (heartbeatLost.value) return
         isMoving.value = true
         setTimeout(() => {
             gantryPosition.value = pos
             isMoving.value = false
-        }, 500)
+        }, 500 + responseDelay.value)
+    }
+
+    const setMotionFault = (type: string) => {
+        switch (type) {
+            case 'limit':
+                motionLimitFault.value = true
+                errorMessage.value = '限位触发 (Limit Hit): 水平移动超出安全范围'
+                break
+            case 'stuck':
+                gantryStuck.value = true
+                errorMessage.value = '机架倾斜卡死: 电机过载 (Motor Overload)'
+                break
+            case 'sync':
+                outOfSync.value = true
+                errorMessage.value = '反馈失步 (Position Out of Sync): 编码器反馈异常'
+                break
+            case 'heartbeat':
+                heartbeatLost.value = true
+                errorMessage.value = '系统通讯超时 (Heartbeat Timeout)'
+                break
+            case 'delay':
+                responseDelay.value = 2000
+                errorMessage.value = '总线延迟 (Response Delay): 通讯延迟已开启(2s)'
+                break
+            case 'clear':
+                motionLimitFault.value = false
+                gantryStuck.value = false
+                outOfSync.value = false
+                heartbeatLost.value = false
+                responseDelay.value = 0
+                errorMessage.value = ''
+                break
+        }
     }
 
     // --- ACTIONS: SCAN ENGINE ---
@@ -266,13 +309,15 @@ export const useSimulatorStore = defineStore('simulator', () => {
         warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
-        scanStatus, scanPhase, errorMessage, currentSlice, totalSlices, exposureActive,
+        scanStatus, scanPhase, errorMessage,
+        motionLimitFault, gantryStuck, outOfSync, heartbeatLost, responseDelay,
+        currentSlice, totalSlices, exposureActive,
 
         // Actions
         toggleLaser, triggerEStop, resetEStop,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem
+        moveGantry, setMotionFault, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem
     }
 }, {
     persist: true // RESTORE PERSISTENCE

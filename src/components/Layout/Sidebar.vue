@@ -31,7 +31,12 @@ const airCalColor = computed(() => {
       <h3 class="section-title">GLOBAL STATUS</h3>
       
       <!-- 1. 激光灯状态 -->
-      <v-card variant="tonal" class="status-card mb-3" :class="{ 'active': store.laserOn }">
+      <v-card 
+        variant="tonal" 
+        class="status-card clickable-card mb-3" 
+        :class="{ 'active': store.laserOn }"
+        @click="store.toggleLaser"
+      >
         <div class="status-icon">
           <v-icon :color="store.laserOn ? 'warning' : 'grey'">mdi-laser-pointer</v-icon>
         </div>
@@ -39,9 +44,7 @@ const airCalColor = computed(() => {
           <span class="label">激光灯状态</span>
           <span class="value">{{ store.laserOn ? '已开启 (ON)' : '已关闭 (OFF)' }}</span>
         </div>
-        <v-btn size="x-small" :color="store.laserOn ? 'warning' : 'default'" variant="flat" @click="store.toggleLaser" class="ml-2">
-          切换
-        </v-btn>
+        <v-tooltip activator="parent" location="top">点击切换开关</v-tooltip>
       </v-card>
 
       <!-- 2. 球管热容量 -->
@@ -161,6 +164,16 @@ const airCalColor = computed(() => {
 
 .status-card.active {
   background: rgba(var(--v-theme-primary), 0.1);
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.clickable-card:hover {
+  background: rgba(var(--v-theme-primary), 0.15);
+  transform: translateY(-2px);
 }
 
 .status-card.warning {
