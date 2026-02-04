@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSimulatorStore } from '../../store/simulator';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const store = useSimulatorStore();
 
@@ -24,12 +24,79 @@ const handleStart = () => {
   store.prepareScan();
 }
 
-const historyData = [
-  { key: '1', time: '10:45:12', protocol: 'Chest Routine', patientId: 'PID-2024-001', dose: '12.4 mGy', status: 'Completed' },
-  { key: '2', time: '10:30:45', protocol: 'Head Non-Contrast', patientId: 'PID-2024-002', dose: '45.2 mGy', status: 'Completed' },
-  { key: '3', time: '10:15:22', protocol: 'Abdomen/Pelvis', patientId: 'PID-2024-003', dose: '18.1 mGy', status: 'Cancelled' },
-];
+const historyData = ref([
+  { 
+    id: '1', 
+    time: '10:45:12', 
+    protocol: 'Chest Routine', 
+    patientId: 'PID-2024-001', 
+    dose: '12.4 mGy', 
+    status: 'Completed',
+    params: {
+      type: '螺旋',
+      kV: '120',
+      mA: '250',
+      rotationTime: '0.5s',
+      collimation: '64x0.6mm',
+      pitch: '0.985',
+      speed: '39.4mm/s',
+      fov: '350mm'
+    },
+    reconPlans: [
+      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' },
+      { name: '骨窗', thickness: '1.25mm', interval: '1.25mm', kernel: 'Bone', ww: '1500', wl: '450' }
+    ]
+  },
+  { 
+    id: '2', 
+    time: '10:30:45', 
+    protocol: 'Head Non-Contrast', 
+    patientId: 'PID-2024-002', 
+    dose: '45.2 mGy', 
+    status: 'Completed',
+    params: {
+      type: '断层',
+      kV: '120',
+      mA: '300',
+      rotationTime: '1.0s',
+      collimation: '24x1.2mm',
+      increment: '5.0mm',
+      count: '24',
+      fov: '220mm'
+    },
+    reconPlans: [
+      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Brain', ww: '80', wl: '40' },
+      { name: '骨窗', thickness: '1.0mm', interval: '1.0mm', kernel: 'Sharp', ww: '2000', wl: '500' }
+    ]
+  },
+  { 
+    id: '3', 
+    time: '10:15:22', 
+    protocol: 'Abdomen/Pelvis', 
+    patientId: 'PID-2024-003', 
+    dose: '18.1 mGy', 
+    status: 'Cancelled',
+    params: {
+      type: '螺旋',
+      kV: '100',
+      mA: '200',
+      rotationTime: '0.75s',
+      collimation: '32x1.2mm',
+      pitch: '1.2',
+      speed: '25.6mm/s',
+      fov: '400mm'
+    },
+    reconPlans: [
+      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' },
+      { name: '骨窗', thickness: '2.0mm', interval: '2.0mm', kernel: 'Bone', ww: '1200', wl: '300' }
+    ]
+  },
+]);
+
+const selectedId = ref('1');
+const selectedActivity = computed(() => historyData.value.find(item => item.id === selectedId.value));
 </script>
+
 
 <template>
   <v-card class="scan-card mb-4" variant="flat">
@@ -182,8 +249,27 @@ const historyData = [
       </div>
 
       <div class="scan-history mt-6">
-        <h4 class="history-title mb-3">RECENT ACTIVITY</h4>
-        <v-table density="compact" class="history-table">
+        <div class="d-flex align-center justify-space-between mb-3">
+          <h4 class="history-title">RECENT ACTIVITY</h4>
+          <div style="width: 240px">
+            <v-select
+              v-model="selectedId"
+              :items="historyData"
+              item-title="patientId"
+              item-value="id"
+              density="compact"
+              label="Select Patient"
+              hide-details
+              variant="outlined"
+            >
+              <template v-slot:item="{ props, item }">
+                <v-list-item v-bind="props" :subtitle="item.raw.protocol"></v-list-item>
+              </template>
+            </v-select>
+          </div>
+        </div>
+
+        <v-table density="compact" class="history-table mb-4">
           <thead>
             <tr>
               <th class="text-left">Time</th>
@@ -194,7 +280,13 @@ const historyData = [
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in historyData" :key="item.key">
+            <tr 
+              v-for="item in historyData" 
+              :key="item.id"
+              :class="{ 'selected-row': selectedId === item.id }"
+              @click="selectedId = item.id"
+              class="clickable-row"
+            >
               <td>{{ item.time }}</td>
               <td>{{ item.protocol }}</td>
               <td><code class="pid-code">{{ item.patientId }}</code></td>
@@ -211,7 +303,112 @@ const historyData = [
             </tr>
           </tbody>
         </v-table>
+
+        <!-- Protocol Details Panel -->
+        <v-expand-transition>
+          <div v-if="selectedActivity" class="protocol-details-panel pa-4 rounded">
+            <div class="d-flex align-center mb-4">
+              <v-icon color="primary" class="mr-2">mdi-flask-outline</v-icon>
+              <span class="text-subtitle-1 font-weight-bold">协议参数详情: {{ selectedActivity.protocol }}</span>
+              <v-chip size="small" color="primary" variant="tonal" class="ml-4">
+                {{ selectedActivity.params.type }}模式
+              </v-chip>
+            </div>
+            
+            <v-row dense>
+              <v-col cols="3">
+                <div class="param-item">
+                  <span class="param-label">管电压 (kV)</span>
+                  <span class="param-value">{{ selectedActivity.params.kV }}</span>
+                </div>
+              </v-col>
+              <v-col cols="3">
+                <div class="param-item">
+                  <span class="param-label">管电流 (mA)</span>
+                  <span class="param-value">{{ selectedActivity.params.mA }}</span>
+                </div>
+              </v-col>
+              <v-col cols="3">
+                <div class="param-item">
+                  <span class="param-label">旋转时间</span>
+                  <span class="param-value">{{ selectedActivity.params.rotationTime }}</span>
+                </div>
+              </v-col>
+              <v-col cols="3">
+                <div class="param-item">
+                  <span class="param-label">准直器宽度</span>
+                  <span class="param-value">{{ selectedActivity.params.collimation }}</span>
+                </div>
+              </v-col>
+              
+              <template v-if="selectedActivity.params.type === '螺旋'">
+                <v-col cols="3">
+                  <div class="param-item">
+                    <span class="param-label">螺旋螺距 (Pitch)</span>
+                    <span class="param-value">{{ selectedActivity.params.pitch }}</span>
+                  </div>
+                </v-col>
+                <v-col cols="3">
+                  <div class="param-item">
+                    <span class="param-label">进床速度</span>
+                    <span class="param-value">{{ selectedActivity.params.speed }}</span>
+                  </div>
+                </v-col>
+              </template>
+              
+              <template v-else>
+                <v-col cols="3">
+                  <div class="param-item">
+                    <span class="param-label">扫描间距</span>
+                    <span class="param-value">{{ selectedActivity.params.increment }}</span>
+                  </div>
+                </v-col>
+                <v-col cols="3">
+                  <div class="param-item">
+                    <span class="param-label">扫描周数</span>
+                    <span class="param-value">{{ selectedActivity.params.count }}</span>
+                  </div>
+                </v-col>
+              </template>
+
+              <v-col cols="3">
+                <div class="param-item">
+                  <span class="param-label">扫描视野 (FOV)</span>
+                  <span class="param-value">{{ selectedActivity.params.fov }}</span>
+                </div>
+              </v-col>
+            </v-row>
+
+            <!-- Reconstruction Plans Section -->
+            <div class="d-flex align-center mb-3 mt-6">
+              <v-icon color="secondary" class="mr-2">mdi-image-edit-outline</v-icon>
+              <span class="text-subtitle-2 font-weight-bold">重建方案参数</span>
+            </div>
+            
+            <v-row dense>
+              <v-col v-for="plan in selectedActivity.reconPlans" :key="plan.name" cols="6">
+                <div class="recon-plan-card pa-3 border rounded">
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <span class="plan-name font-weight-bold">{{ plan.name }}</span>
+                    <v-chip size="x-small" :color="plan.name === '骨窗' ? 'orange' : 'teal'" variant="tonal">
+                      {{ plan.kernel }}
+                    </v-chip>
+                  </div>
+                  <v-row dense>
+                    <v-col cols="4"><div class="mini-param"><span class="l">层厚:</span> {{ plan.thickness }}</div></v-col>
+                    <v-col cols="4"><div class="mini-param"><span class="l">间距:</span> {{ plan.interval }}</div></v-col>
+                    <v-col cols="4"><div class="mini-param"><span class="l">算法:</span> {{ plan.kernel }}</div></v-col>
+                    <v-col cols="6"><div class="mini-param"><span class="l">窗宽 (WW):</span> {{ plan.ww }}</div></v-col>
+                    <v-col cols="6"><div class="mini-param"><span class="l">窗位 (WL):</span> {{ plan.wl }}</div></v-col>
+                  </v-row>
+                </div>
+              </v-col>
+            </v-row>
+          </div>
+
+        </v-expand-transition>
       </div>
+
     </v-card-text>
   </v-card>
 </template>
@@ -348,6 +545,66 @@ const historyData = [
   font-family: 'Consolas', monospace;
   font-size: 0.8rem;
   color: rgb(var(--v-theme-primary));
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clickable-row:hover {
+  background-color: rgba(var(--v-theme-primary), 0.05) !important;
+}
+
+.selected-row {
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+}
+
+.protocol-details-panel {
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  border: 1px solid rgba(var(--v-theme-primary), 0.1);
+  border-left: 4px solid rgb(var(--v-theme-primary));
+}
+
+.param-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: rgba(var(--v-theme-on-surface), 0.02);
+  border-radius: 4px;
+}
+
+.param-label {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.param-value {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: rgb(var(--v-theme-primary));
+}
+
+.recon-plan-card {
+  background: rgba(var(--v-theme-on-surface), 0.02);
+  border: 1px dashed rgba(var(--v-theme-on-surface), 0.1) !important;
+}
+
+.plan-name {
+  font-size: 0.8rem;
+  color: rgb(var(--v-theme-secondary));
+}
+
+.mini-param {
+  font-size: 0.75rem;
+  margin-bottom: 2px;
+}
+
+.mini-param .l {
+  opacity: 0.5;
+  margin-right: 4px;
 }
 
 @keyframes pulse-green {

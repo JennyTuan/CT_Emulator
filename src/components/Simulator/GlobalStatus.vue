@@ -7,23 +7,12 @@ const store = useSimulatorStore();
 <template>
   <div class="global-status-badges">
     <div class="status-indicator">
-      <div class="dot" :class="store.laserOn ? 'warning' : 'grey'"></div>
-      <span class="label">LASER:</span>
-      <span class="value" :class="{ 'color-warning': store.laserOn }">{{ store.laserOn ? 'ACTIVE' : 'READY' }}</span>
-    </div>
-    
-    <div class="status-indicator">
-      <div class="dot pulse" :class="store.warmUpStatus === 'running' ? 'info' : (store.warmUpStatus === 'finished' ? 'success' : 'grey')"></div>
-      <span class="label">TUBE:</span>
-      <span class="value">{{ store.warmUpProgress }}% {{ store.warmUpStatus === 'running' ? 'WARMING...' : 'READY' }}</span>
-    </div>
-
-    <div class="status-indicator">
       <div class="dot" :class="store.eStopActive ? 'error' : 'success'"></div>
       <span class="label">SAFETY:</span>
       <span class="value" :class="{ 'color-error': store.eStopActive }">{{ store.eStopActive ? 'E-STOP' : 'OK' }}</span>
     </div>
   </div>
+
 </template>
 
 <style scoped>

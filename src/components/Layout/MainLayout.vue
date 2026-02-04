@@ -77,10 +77,6 @@ onMounted(() => {
     </v-main>
 
     <v-footer app border height="40" class="footer-custom px-4">
-      <div class="system-alerts">
-        <span v-if="store.eStopActive" class="alert-item error">EMERGENCY STOP ACTIVE</span>
-        <span v-else class="alert-item success">SYSTEM READY</span>
-      </div>
     </v-footer>
   </v-layout>
 </template>

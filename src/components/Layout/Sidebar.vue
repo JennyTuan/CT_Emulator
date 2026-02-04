@@ -30,124 +30,78 @@ const airCalColor = computed(() => {
     <div class="sidebar-section">
       <h3 class="section-title">GLOBAL STATUS</h3>
       
+      <!-- 1. 激光灯状态 -->
       <v-card variant="tonal" class="status-card mb-3" :class="{ 'active': store.laserOn }">
         <div class="status-icon">
-          <v-icon :color="store.laserOn ? 'warning' : 'grey'">mdi-flash</v-icon>
+          <v-icon :color="store.laserOn ? 'warning' : 'grey'">mdi-laser-pointer</v-icon>
         </div>
         <div class="status-info">
-          <span class="label">Laser Status</span>
-          <span class="value">{{ store.laserOn ? 'ON' : 'OFF' }}</span>
+          <span class="label">激光灯状态</span>
+          <span class="value">{{ store.laserOn ? '已开启 (ON)' : '已关闭 (OFF)' }}</span>
         </div>
-        <v-btn size="small" :color="store.laserOn ? 'primary' : 'default'" @click="store.toggleLaser">
-          TOGGLE
+        <v-btn size="x-small" :color="store.laserOn ? 'warning' : 'default'" variant="flat" @click="store.toggleLaser" class="ml-2">
+          切换
         </v-btn>
       </v-card>
 
-      <v-card variant="tonal" class="status-card mb-3" :class="{ 'warning': store.eStopActive }">
-        <div class="status-icon">
-          <v-icon :color="store.eStopActive ? 'error' : 'grey'">mdi-shield-alert</v-icon>
-        </div>
-        <div class="status-info">
-          <span class="label">Emergency Stop</span>
-          <v-chip size="x-small" :color="store.eStopActive ? 'error' : 'success'">
-            {{ store.eStopActive ? 'TRIGGERED' : 'NORMAL' }}
-          </v-chip>
-        </div>
-        <v-btn v-if="store.eStopActive" size="small" color="error" variant="flat" @click="store.resetEStop">RESET</v-btn>
-      </v-card>
-
+      <!-- 2. 球管热容量 -->
       <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <v-icon :color="warmUpColor">mdi-thermometer</v-icon>
+          <v-icon color="primary">mdi-thermometer-lines</v-icon>
         </div>
         <div class="status-info">
-          <span class="label">Tube Warm-up</span>
+          <span class="label">球管热容量</span>
+          <div class="d-flex align-center justify-space-between">
+            <span class="value">{{ Math.round((store.currentHeatCapacity / store.targetHeatCapacity) * 100) }}%</span>
+            <span class="text-caption opacity-60">{{ store.currentHeatCapacity.toFixed(1) }} / {{ store.targetHeatCapacity }} HU</span>
+          </div>
           <v-progress-linear
-            :model-value="store.warmUpProgress"
-            :color="warmUpColor"
-            height="6"
+            :model-value="(store.currentHeatCapacity / store.targetHeatCapacity) * 100"
+            color="primary"
+            height="4"
             rounded
-            :indeterminate="store.warmUpStatus === 'running'"
             class="mt-1"
           ></v-progress-linear>
         </div>
-        <div class="d-flex flex-column align-end">
-          <v-btn 
-            v-if="store.warmUpStatus === 'idle' || store.warmUpStatus === 'finished'" 
-            size="x-small" 
-            variant="text" 
-            @click="store.startWarmUp"
-          >START</v-btn>
-          <v-btn 
-            v-else-if="store.warmUpStatus === 'running'" 
-            size="x-small" 
-            variant="text" 
-            color="warning" 
-            @click="store.pauseWarmUp"
-          >PAUSE</v-btn>
-          <v-btn 
-            v-else-if="store.warmUpStatus === 'paused'" 
-            size="x-small" 
-            variant="text" 
-            color="primary" 
-            @click="store.resumeWarmUp"
-          >RESUME</v-btn>
-          <v-btn 
-            v-if="store.warmUpStatus === 'error'" 
-            size="x-small" 
-            variant="text" 
-            color="error" 
-            @click="store.resetWarmUp"
-          >RESET</v-btn>
+      </v-card>
+
+      <!-- 3. 机架倾角 -->
+      <v-card variant="tonal" class="status-card mb-3">
+        <div class="status-icon">
+          <v-icon color="secondary">mdi-rotate-orbit</v-icon>
+        </div>
+        <div class="status-info">
+          <span class="label">机架倾角</span>
+          <span class="value font-weight-black">{{ store.gantryPosition.toFixed(1) }}°</span>
         </div>
       </v-card>
 
+      <!-- 4. 床码值 -->
       <v-card variant="tonal" class="status-card mb-3">
         <div class="status-icon">
-          <v-icon :color="airCalColor">mdi-wind-power</v-icon>
+          <v-icon color="info">mdi-human-bed</v-icon>
         </div>
         <div class="status-info">
-          <span class="label">Air Calibration</span>
-          <v-progress-linear
-            :model-value="store.airCalProgress"
-            :color="airCalColor"
-            height="6"
-            rounded
-            :indeterminate="store.airCalStatus === 'running'"
-            class="mt-1"
-          ></v-progress-linear>
+          <span class="label">床码值 (水平)</span>
+          <span class="value font-weight-black">{{ store.tableHorizontal.toFixed(1) }} mm</span>
         </div>
-        <div class="d-flex flex-column align-end">
-          <v-btn 
-            v-if="store.airCalStatus === 'idle' || store.airCalStatus === 'finished'" 
-            size="x-small" 
-            variant="text" 
-            @click="store.startAirCal"
-          >START</v-btn>
-          <v-btn 
-            v-else-if="store.airCalStatus === 'running'" 
-            size="x-small" 
-            variant="text" 
-            color="warning" 
-            @click="store.pauseAirCal"
-          >PAUSE</v-btn>
-          <v-btn 
-            v-else-if="store.airCalStatus === 'paused'" 
-            size="x-small" 
-            variant="text" 
-            color="success" 
-            @click="store.resumeAirCal"
-          >RESUME</v-btn>
-          <v-btn 
-            v-if="store.airCalStatus === 'error'" 
-            size="x-small" 
-            variant="text" 
-            color="error" 
-            @click="store.resetAirCal"
-          >RESET</v-btn>
+      </v-card>
+
+      <!-- 5. 曝光状态 -->
+      <v-card variant="tonal" class="status-card mb-3" :class="{ 'exposure-active': store.exposureActive }">
+        <div class="status-icon">
+          <v-icon :color="store.exposureActive ? 'error' : 'grey'">mdi-radioactive</v-icon>
         </div>
+        <div class="status-info">
+          <span class="label">曝光状态</span>
+          <span class="value" :class="{ 'text-error': store.exposureActive }">
+            {{ store.exposureActive ? '曝光中 (ACTIVE)' : '空闲 (IDLE)' }}
+          </span>
+        </div>
+        <div v-if="store.exposureActive" class="pulse-dot"></div>
       </v-card>
     </div>
+
 
     <v-divider class="my-4"></v-divider>
 
@@ -211,6 +165,32 @@ const airCalColor = computed(() => {
 
 .status-card.warning {
   background: rgba(var(--v-theme-error), 0.1);
+}
+
+.status-card.exposure-active {
+  background: rgba(var(--v-theme-error), 0.1);
+  border: 1px solid rgba(var(--v-theme-error), 0.3);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: rgb(var(--v-theme-error));
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(var(--v-theme-error), 0.4);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-error), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(var(--v-theme-error), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-error), 0);
+  }
 }
 
 .status-icon {
