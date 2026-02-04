@@ -1,30 +1,38 @@
 <script setup lang="ts">
-import { useSimulatorStore } from '../../store/simulator';
-import { computed, ref } from 'vue';
+import { computed, ref } from 'vue'
+import { useSimulatorStore } from '../../store/simulator'
 
-const store = useSimulatorStore();
+const store = useSimulatorStore()
 
 const progressPercent = computed(() => {
-  if (!store.totalSlices) return 0;
-  return Math.round((store.currentSlice / store.totalSlices) * 100);
-});
+  if (!store.totalSlices) return 0
+  return Math.round((store.currentSlice / store.totalSlices) * 100)
+})
 
 const scanStatusColor = computed(() => {
-  const status = store.scanStatus || 'idle';
+  const status = store.scanStatus || 'idle'
   switch (status) {
-    case 'scanning': return 'success';
-    case 'error': return 'error';
-    case 'ready': return 'primary';
-    default: return 'grey';
+    case 'scanning': return 'success'
+    case 'error': return 'error'
+    case 'ready': return 'primary'
+    default: return 'grey'
   }
-});
+})
+
+const scanStatusLabel = computed(() =>
+  store.scanStatus === 'error' ? 'ALARM / ERROR' : (store.scanStatus || 'idle').toUpperCase()
+)
+const scanPhaseLabel = computed(() => store.scanPhase.toUpperCase())
+const showPhaseChip = computed(() => store.scanPhase !== 'idle')
+const isScanning = computed(() => store.exposureActive)
+const isReconstructing = computed(() => store.scanPhase === 'reconstructing')
+const isFinishing = computed(() => store.scanPhase === 'finishing')
 
 const handleStart = () => {
-  console.log('Start Clicked');
-  store.prepareScan();
+  store.prepareScan()
 }
 
-const historyData = ref([
+const historyData = [
   { 
     id: '1', 
     time: '10:45:12', 
@@ -103,10 +111,10 @@ const historyData = ref([
       { name: '骨窗', thickness: '2.0mm', interval: '2.0mm', kernel: 'Bone', ww: '1200', wl: '300' }
     ]
   },
-]);
+];
 
-const selectedId = ref('1');
-const selectedActivity = computed(() => historyData.value.find(item => item.id === selectedId.value));
+const selectedId = ref<string>(historyData[0]?.id ?? '1')
+const selectedActivity = computed(() => historyData.find(item => item.id === selectedId.value))
 
 const faultCategories = [
   {
@@ -166,14 +174,14 @@ const faultCategories = [
     
     <v-card-text class="pa-4">
       <div class="scan-main">
-          <div class="scan-visualizer" :class="{ 'is-scanning': store.exposureActive, 'is-reconstructing': store.scanPhase === 'reconstructing' }">
-          <div class="exposure-indicator" v-if="store.exposureActive">
+          <div class="scan-visualizer" :class="{ 'is-scanning': isScanning, 'is-reconstructing': isReconstructing }">
+          <div class="exposure-indicator" v-if="isScanning">
             EXPOSURE ACTIVE
           </div>
-          <div class="recon-indicator" v-if="store.scanPhase === 'reconstructing'">
+          <div class="recon-indicator" v-if="isReconstructing">
             RECONSTRUCTING...
           </div>
-          <div class="finish-indicator" v-if="store.scanPhase === 'finishing'">
+          <div class="finish-indicator" v-if="isFinishing">
             FINISHING...
           </div>
           <div class="slice-counter">
@@ -201,10 +209,10 @@ const faultCategories = [
             <div class="d-flex align-center justify-space-between">
               <div class="d-flex align-center">
                 <span class="label mr-3">CURRENT STATE:</span>
-                <span class="value">{{ store.scanStatus === 'error' ? 'ALARM / ERROR' : (store.scanStatus || 'idle').toUpperCase() }}</span>
+                <span class="value">{{ scanStatusLabel }}</span>
               </div>
-              <v-chip v-if="store.scanPhase && store.scanPhase !== 'idle'" size="small" :color="scanStatusColor" variant="flat">
-                PHASE: {{ store.scanPhase.toUpperCase() }}
+              <v-chip v-if="showPhaseChip" size="small" :color="scanStatusColor" variant="flat">
+                PHASE: {{ scanPhaseLabel }}
               </v-chip>
             </div>
             <div v-if="store.errorMessage" class="error-detail-text mt-1 text-uppercase font-weight-bold">

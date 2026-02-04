@@ -159,6 +159,9 @@ const statusColor = computed(() => {
 .panel-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
+  row-gap: 12px;
+  flex-wrap: wrap;
 }
 
 .start-button {

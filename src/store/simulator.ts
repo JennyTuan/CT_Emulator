@@ -1,8 +1,38 @@
 import { defineStore } from 'pinia'
-import { ref, nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
+import {
+    AIRCAL_INTERVAL_MS,
+    AIRCAL_STEP_PERCENT,
+    AIRCAL_TOTAL_COMBINATIONS,
+    ENABLE_DELAY_MS,
+    FINISH_DELAY_MS,
+    MAX_LOG_ENTRIES,
+    MOVE_GANTRY_BASE_DELAY_MS,
+    RECON_DELAY_MS,
+    SCAN_INTERVAL_MS,
+    SCAN_SLICE_STEP,
+    SCAN_TOTAL_SLICES,
+    THERMAL_UPDATE_MS,
+    TUBE_COOL_RATE_PER_TICK,
+    TUBE_TEMP_AMBIENT,
+    TUBE_TEMP_MAX,
+    TUBE_TEMP_WARN,
+    EXPOSURE_HEAT_PER_SLICE,
+    WARMUP_HEAT_PER_TICK,
+    WARMUP_INTERVAL_MS,
+    WARMUP_STEP_PERCENT
+} from '../constants/simulator'
 
 export type ProcessStatus = 'idle' | 'running' | 'paused' | 'finished' | 'error'
 export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'exposing' | 'exposed' | 'reconstructing' | 'finishing' | 'error'
+export type LogLevel = 'info' | 'warn' | 'error' | 'success'
+
+type LogEntry = {
+    id: string
+    time: string
+    level: LogLevel
+    message: string
+}
 
 export const useSimulatorStore = defineStore('simulator', () => {
     // --- GLOBAL STATE ---
@@ -14,13 +44,13 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const warmUpProgress = ref(0)
     const currentHeatCapacity = ref(0)
     const targetHeatCapacity = ref(60)
-    let warmUpTimer: any = null
+    let warmUpTimer: ReturnType<typeof setInterval> | null = null
 
     // --- AIR CALIBRATION ---
     const airCalStatus = ref<ProcessStatus>('idle')
     const airCalProgress = ref(0)
     const completedAirCalCombinations = ref(0)
-    let airCalTimer: any = null
+    let airCalTimer: ReturnType<typeof setInterval> | null = null
 
     const airCalParams = ref({
         rotationSpeed: [1, 2, 0.75],
@@ -49,13 +79,80 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const faultSimActive = ref(false) // Track if fault simulation is active
 
     const currentSlice = ref(0)
-    const totalSlices = ref(500)
+    const totalSlices = ref(SCAN_TOTAL_SLICES)
     const exposureActive = ref(false)
-    let scanInterval: any = null
+    let scanInterval: ReturnType<typeof setInterval> | null = null
+
+    const tubeTemp = ref(TUBE_TEMP_AMBIENT)
+    const tubeOverheat = ref(false)
+    let thermalTimer: ReturnType<typeof setInterval> | null = null
+    let lastTempWarnAt = 0
+
+    const logs = ref<LogEntry[]>([])
+
+    const addLog = (level: LogLevel, message: string) => {
+        const time = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        logs.value.unshift({
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            time,
+            level,
+            message
+        })
+        if (logs.value.length > MAX_LOG_ENTRIES) {
+            logs.value = logs.value.slice(0, MAX_LOG_ENTRIES)
+        }
+    }
+
+    const applyTubeHeat = (delta: number) => {
+        tubeTemp.value = Math.max(TUBE_TEMP_AMBIENT, tubeTemp.value + delta)
+        if (tubeTemp.value >= TUBE_TEMP_MAX) {
+            tubeOverheat.value = true
+            triggerEStop('球管过热 (Tube Overheat)')
+            addLog('error', `球管过热：${tubeTemp.value.toFixed(1)}°C`)
+        } else if (tubeTemp.value >= TUBE_TEMP_WARN) {
+            const now = Date.now()
+            if (now - lastTempWarnAt > 5000) {
+                lastTempWarnAt = now
+                addLog('warn', `球管温度偏高：${tubeTemp.value.toFixed(1)}°C`)
+            }
+        }
+    }
+
+    const startThermalLoop = () => {
+        if (thermalTimer) return
+        thermalTimer = setInterval(() => {
+            if (exposureActive.value || warmUpStatus.value === 'running') return
+            if (tubeTemp.value > TUBE_TEMP_AMBIENT) {
+                tubeTemp.value = Math.max(TUBE_TEMP_AMBIENT, tubeTemp.value - TUBE_COOL_RATE_PER_TICK)
+            }
+        }, THERMAL_UPDATE_MS)
+    }
+
+    const clearWarmUpTimer = () => {
+        if (warmUpTimer) {
+            clearInterval(warmUpTimer)
+            warmUpTimer = null
+        }
+    }
+
+    const clearAirCalTimer = () => {
+        if (airCalTimer) {
+            clearInterval(airCalTimer)
+            airCalTimer = null
+        }
+    }
+
+    const clearScanInterval = () => {
+        if (scanInterval) {
+            clearInterval(scanInterval)
+            scanInterval = null
+        }
+    }
 
     // --- ACTIONS: GLOBAL ---
     const toggleLaser = () => {
         laserOn.value = !laserOn.value
+        addLog('info', laserOn.value ? '激光定位已开启' : '激光定位已关闭')
     }
 
     const triggerEStop = (msg: string = 'EMERGENCY STOP ACTIVE') => {
@@ -63,18 +160,20 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scanStatus.value = 'error'
         scanPhase.value = 'error'
         errorMessage.value = msg
+        addLog('error', `急停触发：${msg}`)
         isMoving.value = false
         exposureActive.value = false
         gantryStuck.value = false // Reset stuck on estop
         if (warmUpStatus.value === 'running') failWarmUp()
         if (airCalStatus.value === 'running') failAirCal()
-        if (scanInterval) clearInterval(scanInterval)
+        clearScanInterval()
     }
 
     const resetEStop = () => {
         eStopActive.value = false
         faultSimActive.value = false
         errorMessage.value = ''
+        addLog('info', '急停已复位')
         if (scanPhase.value === 'error') {
             scanPhase.value = 'idle'
             scanStatus.value = 'idle'
@@ -86,98 +185,110 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const runWarmUp = () => {
         warmUpTimer = setInterval(() => {
             if (warmUpStatus.value !== 'running') {
-                clearInterval(warmUpTimer)
+                clearWarmUpTimer()
                 return
             }
-            warmUpProgress.value = Math.min(100, warmUpProgress.value + 1)
+            warmUpProgress.value = Math.min(100, warmUpProgress.value + WARMUP_STEP_PERCENT)
             currentHeatCapacity.value = (warmUpProgress.value / 100) * targetHeatCapacity.value
+            applyTubeHeat(WARMUP_HEAT_PER_TICK)
             if (warmUpProgress.value >= 100) {
-                clearInterval(warmUpTimer)
+                clearWarmUpTimer()
                 warmUpStatus.value = 'finished'
+                addLog('success', '球管预热完成')
             }
-        }, 100)
+        }, WARMUP_INTERVAL_MS)
     }
 
     const startWarmUp = () => {
         if (warmUpStatus.value === 'running' || warmUpStatus.value === 'finished') return
         warmUpStatus.value = 'running'
+        addLog('info', '开始球管预热')
         runWarmUp()
     }
 
     const pauseWarmUp = () => {
         if (warmUpStatus.value === 'running') {
             warmUpStatus.value = 'paused'
-            clearInterval(warmUpTimer)
+            clearWarmUpTimer()
+            addLog('warn', '球管预热已暂停')
         }
     }
 
     const resumeWarmUp = () => {
         if (warmUpStatus.value === 'paused') {
             warmUpStatus.value = 'running'
+            addLog('info', '球管预热继续')
             runWarmUp()
         }
     }
 
     const failWarmUp = () => {
         warmUpStatus.value = 'error'
-        clearInterval(warmUpTimer)
+        clearWarmUpTimer()
+        addLog('error', '球管预热失败')
     }
 
     const resetWarmUp = () => {
         warmUpStatus.value = 'idle'
         warmUpProgress.value = 0
         currentHeatCapacity.value = 0
-        if (warmUpTimer) clearInterval(warmUpTimer)
+        clearWarmUpTimer()
+        addLog('info', '球管预热已重置')
     }
 
     // --- ACTIONS: AIR CAL ---
     const runAirCal = () => {
-        const totalCombinations = 24
         airCalTimer = setInterval(() => {
             if (airCalStatus.value !== 'running') {
-                clearInterval(airCalTimer)
+                clearAirCalTimer()
                 return
             }
-            airCalProgress.value = Math.min(100, airCalProgress.value + 0.5)
-            completedAirCalCombinations.value = Math.floor((airCalProgress.value / 100) * totalCombinations)
+            airCalProgress.value = Math.min(100, airCalProgress.value + AIRCAL_STEP_PERCENT)
+            completedAirCalCombinations.value = Math.floor((airCalProgress.value / 100) * AIRCAL_TOTAL_COMBINATIONS)
             if (airCalProgress.value >= 100) {
-                clearInterval(airCalTimer)
+                clearAirCalTimer()
                 airCalStatus.value = 'finished'
-                completedAirCalCombinations.value = totalCombinations
+                completedAirCalCombinations.value = AIRCAL_TOTAL_COMBINATIONS
+                addLog('success', '空气校正完成')
             }
-        }, 100)
+        }, AIRCAL_INTERVAL_MS)
     }
 
     const startAirCal = () => {
         if (airCalStatus.value === 'running' || airCalStatus.value === 'finished') return
         airCalStatus.value = 'running'
+        addLog('info', '开始空气校正')
         runAirCal()
     }
 
     const pauseAirCal = () => {
         if (airCalStatus.value === 'running') {
             airCalStatus.value = 'paused'
-            clearInterval(airCalTimer)
+            clearAirCalTimer()
+            addLog('warn', '空气校正已暂停')
         }
     }
 
     const resumeAirCal = () => {
         if (airCalStatus.value === 'paused') {
             airCalStatus.value = 'running'
+            addLog('info', '空气校正继续')
             runAirCal()
         }
     }
 
     const failAirCal = () => {
         airCalStatus.value = 'error'
-        clearInterval(airCalTimer)
+        clearAirCalTimer()
+        addLog('error', '空气校正失败')
     }
 
     const resetAirCal = () => {
         airCalStatus.value = 'idle'
         airCalProgress.value = 0
         completedAirCalCombinations.value = 0
-        if (airCalTimer) clearInterval(airCalTimer)
+        clearAirCalTimer()
+        addLog('info', '空气校正已重置')
     }
 
     const clearAirCalRecords = () => resetAirCal()
@@ -189,7 +300,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         setTimeout(() => {
             gantryPosition.value = pos
             isMoving.value = false
-        }, 500 + responseDelay.value)
+        }, MOVE_GANTRY_BASE_DELAY_MS + responseDelay.value)
     }
 
     const setMotionFault = (type: string) => {
@@ -197,22 +308,27 @@ export const useSimulatorStore = defineStore('simulator', () => {
             case 'limit':
                 motionLimitFault.value = true
                 errorMessage.value = '限位触发 (Limit Hit): 水平移动超出安全范围'
+                addLog('error', '限位触发：水平移动超出安全范围')
                 break
             case 'stuck':
                 gantryStuck.value = true
                 errorMessage.value = '机架倾斜卡死: 电机过载 (Motor Overload)'
+                addLog('error', '机架倾斜卡死：电机过载')
                 break
             case 'sync':
                 outOfSync.value = true
                 errorMessage.value = '反馈失步 (Position Out of Sync): 编码器反馈异常'
+                addLog('error', '运动反馈失步：编码器反馈异常')
                 break
             case 'heartbeat':
                 heartbeatLost.value = true
                 errorMessage.value = '系统通讯超时 (Heartbeat Timeout)'
+                addLog('error', '系统通讯超时：心跳丢失')
                 break
             case 'delay':
                 responseDelay.value = 2000
-                errorMessage.value = '总线延迟 (Response Delay): 通讯延迟已开启(2s)'
+                errorMessage.value = '总线延迟 (Response Delay): 通讯延迟已开启 (2s)'
+                addLog('warn', '通讯延迟模拟已开启 (2s)')
                 break
             case 'clear':
                 motionLimitFault.value = false
@@ -221,6 +337,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
                 heartbeatLost.value = false
                 responseDelay.value = 0
                 errorMessage.value = ''
+                addLog('info', '运动故障已清除')
                 break
         }
     }
@@ -235,14 +352,17 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scanPhase.value = 'prepared'
         scanStatus.value = 'ready'
         currentSlice.value = 0
+        addLog('info', '扫描准备完成')
     }
 
     const enableScan = async () => {
         if (scanPhase.value !== 'prepared') return
         scanPhase.value = 'enabling'
-        await delay(1200)
+        addLog('info', '扫描上电使能中')
+        await delay(ENABLE_DELAY_MS)
         if ((scanPhase.value as string) === 'error') return
         scanPhase.value = 'enabled'
+        addLog('success', '扫描使能完成')
     }
 
     const startExposure = async () => {
@@ -250,27 +370,30 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scanPhase.value = 'exposing'
         scanStatus.value = 'scanning'
         exposureActive.value = true
+        addLog('info', '开始曝光')
         await nextTick()
 
         try {
             await new Promise<void>((resolve, reject) => {
                 scanInterval = setInterval(() => {
                     if ((scanPhase.value as string) === 'error') {
-                        clearInterval(scanInterval)
+                        clearScanInterval()
                         exposureActive.value = false
                         reject(new Error('Exposure Failed'))
                         return
                     }
-                    currentSlice.value += 10
+                    currentSlice.value += SCAN_SLICE_STEP
+                    applyTubeHeat(SCAN_SLICE_STEP * EXPOSURE_HEAT_PER_SLICE)
                     if (currentSlice.value >= totalSlices.value) {
-                        clearInterval(scanInterval)
+                        clearScanInterval()
                         exposureActive.value = false
                         resolve()
                     }
-                }, 50)
+                }, SCAN_INTERVAL_MS)
             })
 
             scanPhase.value = 'exposed'
+            addLog('success', '曝光完成')
         } catch (e) {
             console.error(e)
         }
@@ -282,15 +405,17 @@ export const useSimulatorStore = defineStore('simulator', () => {
         try {
             scanPhase.value = 'reconstructing'
             scanStatus.value = 'scanning'
-            await delay(2000)
+            addLog('info', '开始重建')
+            await delay(RECON_DELAY_MS)
             if ((scanPhase.value as string) === 'error') return
 
             scanPhase.value = 'finishing'
-            await delay(1000)
+            await delay(FINISH_DELAY_MS)
             if ((scanPhase.value as string) === 'error') return
 
             scanPhase.value = 'idle'
             scanStatus.value = 'idle'
+            addLog('success', '重建完成，扫描结束')
         } catch (e) {
             console.error(e)
         }
@@ -303,8 +428,11 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
     const resetSystem = () => {
         localStorage.clear()
+        addLog('warn', '系统强制重置')
         window.location.reload()
     }
+
+    startThermalLoop()
 
     return {
         // State
@@ -315,6 +443,8 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scanStatus, scanPhase, errorMessage,
         motionLimitFault, gantryStuck, outOfSync, heartbeatLost, responseDelay, faultSimActive,
         currentSlice, totalSlices, exposureActive,
+        tubeTemp, tubeOverheat,
+        logs,
 
         // Actions
         toggleLaser, triggerEStop, resetEStop,

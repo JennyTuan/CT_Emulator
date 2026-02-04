@@ -5,10 +5,8 @@ import MotionControl from '../Simulator/MotionControl.vue';
 import ScanStatus from '../Simulator/ScanStatus.vue';
 import GlobalStatus from '../Simulator/GlobalStatus.vue';
 import Maintenance from '../Simulator/Maintenance.vue';
-import { useSimulatorStore } from '../../store/simulator';
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted } from 'vue';
 
-const store = useSimulatorStore();
 const theme = useTheme();
 
 const toggleTheme = () => {
@@ -105,29 +103,4 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.alert-item {
-  font-weight: bold;
-  font-size: 0.9rem;
-  padding: 2px 8px;
-  border-radius: 2px;
-}
-
-.alert-item.error {
-  color: #f5222d;
-  background: rgba(245, 34, 45, 0.1);
-  border: 1px solid #f5222d;
-  animation: pulse-red 1s infinite;
-}
-
-.alert-item.success {
-  color: #52c41a;
-  background: rgba(82, 196, 26, 0.1);
-  border: 1px solid #52c41a;
-}
-
-@keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0 rgba(245, 34, 45, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(245, 34, 45, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(245, 34, 45, 0); }
-}
 </style>

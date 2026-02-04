@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { useSimulatorStore } from '../../store/simulator';
-import { ref, computed } from 'vue';
+import { computed } from 'vue'
+import { AIRCAL_TOTAL_COMBINATIONS } from '../../constants/simulator'
+import { useSimulatorStore } from '../../store/simulator'
 
-const store = useSimulatorStore();
+const store = useSimulatorStore()
 
-const options = {
-  rotationSpeed: [1, 2, 0.75],
-  focalSpot: ['small', 'big'],
-  voltage: [80, 100, 120, 140],
-  collimatorWidth: ['32*0.6']
-};
+const airCalOptions = {
+  '旋转速度': [1, 2, 0.75],
+  '焦点': ['small', 'big'],
+  '电压': [80, 100, 120, 140],
+  '准直器宽度': ['32*0.6']
+}
 
 const statusColor = computed(() => {
   switch (store.airCalStatus) {
-    case 'running': return 'success';
-    case 'paused': return 'warning';
-    case 'finished': return 'primary';
-    case 'error': return 'error';
-    default: return 'grey';
+    case 'running': return 'success'
+    case 'paused': return 'warning'
+    case 'finished': return 'primary'
+    case 'error': return 'error'
+    default: return 'grey'
   }
-});
+})
 </script>
 
 <template>
@@ -39,7 +40,7 @@ const statusColor = computed(() => {
     </v-alert>
 
     <v-row class="params-grid">
-      <v-col cols="6" v-for="(vals, label) in { '旋转速度': options.rotationSpeed, '焦点': options.focalSpot, '电压': options.voltage, '准直器宽度': options.collimatorWidth }" :key="label">
+      <v-col cols="6" v-for="(vals, label) in airCalOptions" :key="label">
         <v-card class="param-card pa-4" variant="tonal">
           <h4 class="param-title mb-4">{{ label }}</h4>
           <v-radio-group inline hide-details density="compact" :disabled="store.airCalStatus === 'running'">
@@ -51,9 +52,9 @@ const statusColor = computed(() => {
 
     <div class="summary-line my-6 pa-4">
       <div class="summary-info">
-        当前组合数：<span class="highlight">24</span> 
+        当前组合数：<span class="highlight">{{ AIRCAL_TOTAL_COMBINATIONS }}</span> 
         (已完成 <span class="highlight success">{{ store.completedAirCalCombinations }}</span>, 
-        待校正 <span class="highlight warning">{{ 24 - store.completedAirCalCombinations }}</span>)
+        待校正 <span class="highlight warning">{{ AIRCAL_TOTAL_COMBINATIONS - store.completedAirCalCombinations }}</span>)
       </div>
       <v-btn variant="text" size="small" class="clear-btn" @click="store.resetAirCal">
         清空记录

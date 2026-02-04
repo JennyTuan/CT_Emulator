@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useSimulatorStore } from '../../store/simulator';
+import { useSimulatorStore } from '../../store/simulator'
 
-const store = useSimulatorStore();
+const store = useSimulatorStore()
 </script>
 
 <template>

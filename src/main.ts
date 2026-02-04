@@ -11,6 +11,8 @@ import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
 
 import './styles/main.css'
+import './styles/animations.css'
+import './styles/utilities.css'
 
 const vuetify = createVuetify({
     components,
