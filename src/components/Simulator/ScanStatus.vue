@@ -336,13 +336,13 @@ const faultCategories = [
 
 
             <v-btn 
-              color="error" 
+              :color="store.eStopActive ? 'success' : 'error'" 
               size="large" 
-              @click="store.triggerEStop"
-              prepend-icon="mdi-stop"
+              @click="store.eStopActive ? store.resetEStop() : store.triggerEStop()"
+              :prepend-icon="store.eStopActive ? 'mdi-refresh' : 'mdi-stop'"
               class="flex-grow-1"
             >
-              STOP / E-STOP
+              {{ store.eStopActive ? 'RESET / 解除急停' : 'STOP / E-STOP' }}
             </v-btn>
           </div>
 
