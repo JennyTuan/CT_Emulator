@@ -24,7 +24,8 @@ import {
 } from '../constants/simulator'
 
 export type ProcessStatus = 'idle' | 'running' | 'paused' | 'finished' | 'error'
-export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'exposing' | 'exposed' | 'reconstructing' | 'finishing' | 'error'
+export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'scouting' | 'scout_exposed' | 'exposing' | 'exposed' | 'reconstructing' | 'finishing' | 'error'
+export type PatientStatus = 'idle' | 'inProgress' | 'completed' | 'cancelled'
 export type LogLevel = 'info' | 'warn' | 'error' | 'success'
 
 type LogEntry = {
@@ -38,6 +39,23 @@ export const useSimulatorStore = defineStore('simulator', () => {
     // --- GLOBAL STATE ---
     const laserOn = ref(false)
     const eStopActive = ref(false)
+
+    // --- PATIENT & WORKFLOW ---
+    const patientStatus = ref<PatientStatus>('idle')
+    const patientInfoComplete = ref(false)
+    const protocolComplete = ref(false)
+    const scoutComplete = ref(false)
+    const scanComplete = ref(false)
+    const reconComplete = ref(false)
+    const activePatient = ref({
+        id: 'PID-2024-004',
+        name: '张小凡',
+        gender: 'M',
+        age: '28Y',
+        weight: '65kg',
+        protocol: 'Chest Routine'
+    })
+
 
     // --- TUBE WARM-UP ---
     const warmUpStatus = ref<ProcessStatus>('idle')
@@ -370,7 +388,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
 
     const startExposure = async () => {
-        if (scanPhase.value !== 'enabled') return
+        if (scanPhase.value !== 'enabled' && scanPhase.value !== 'scout_exposed') return
         scanPhase.value = 'exposing'
         scanStatus.value = 'scanning'
         exposureActive.value = true
@@ -404,7 +422,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
 
     const startRecon = async () => {
-        if (scanPhase.value !== 'exposed') return
+        if (scanPhase.value !== 'exposed' && scanPhase.value !== 'scout_exposed') return
 
         try {
             scanPhase.value = 'reconstructing'
@@ -419,10 +437,27 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
             scanPhase.value = 'idle'
             scanStatus.value = 'idle'
-            addLog('success', '重建完成，扫描结束')
+            reconComplete.value = true
+            patientStatus.value = 'completed'
+            addLog('success', '重建完成，检查结束')
         } catch (e) {
             console.error(e)
         }
+    }
+
+    const startScout = async () => {
+        if (scanPhase.value !== 'enabled') return
+        scanPhase.value = 'scouting'
+        scanStatus.value = 'scanning'
+        exposureActive.value = true
+        addLog('info', '开始定位像 (Scout) 扫描')
+
+        // Short exposure for scout
+        await delay(2000)
+        exposureActive.value = false
+        scanPhase.value = 'scout_exposed'
+        scoutComplete.value = true
+        addLog('success', '定位像扫描完成')
     }
 
     const failScan = (msg?: string) => {
@@ -431,9 +466,39 @@ export const useSimulatorStore = defineStore('simulator', () => {
     }
 
     const resetSystem = () => {
+        // 1. Explicitly reset all clinical states
+        patientStatus.value = 'idle'
+        patientInfoComplete.value = false
+        protocolComplete.value = false
+        scoutComplete.value = false
+        scanComplete.value = false
+        reconComplete.value = false
+        scanPhase.value = 'idle'
+        scanStatus.value = 'idle'
+        currentSlice.value = 0
+        exposureActive.value = false
+        faultSimActive.value = false
+        logs.value = []
+
+        // 2. Clear storage and reload
         localStorage.clear()
         addLog('warn', '系统强制重置')
         window.location.reload()
+    }
+
+    const confirmPatientInfo = (info?: any) => {
+        if (info) activePatient.value = { ...activePatient.value, ...info }
+        patientInfoComplete.value = true
+        patientStatus.value = 'inProgress'
+        addLog('success', '模拟器收到：患者基本信息已完成确认')
+    }
+
+    const confirmProtocolParameters = (params?: any) => {
+        protocolComplete.value = true
+        reconComplete.value = true
+        if (patientInfoComplete.value) {
+            addLog('success', '模拟器收到：协议参数及重建参数已完成确认')
+        }
     }
 
     startThermalLoop()
@@ -441,6 +506,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     return {
         // State
         laserOn, eStopActive,
+        patientStatus, patientInfoComplete, protocolComplete, scoutComplete, scanComplete, reconComplete, activePatient,
         warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
@@ -452,9 +518,10 @@ export const useSimulatorStore = defineStore('simulator', () => {
 
         // Actions
         toggleLaser, triggerEStop, resetEStop,
+        confirmPatientInfo, confirmProtocolParameters,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, setMotionFault, prepareScan, enableScan, startExposure, startRecon, failScan, resetSystem,
+        moveGantry, setMotionFault, prepareScan, enableScan, startScout, startExposure, startRecon, failScan, resetSystem,
         addLog,
         clearLogs
     }

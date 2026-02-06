@@ -25,6 +25,7 @@ const scanStatusLabel = computed(() =>
 const scanPhaseLabel = computed(() => store.scanPhase.toUpperCase())
 const showPhaseChip = computed(() => store.scanPhase !== 'idle')
 const isScanning = computed(() => store.exposureActive)
+const isScouting = computed(() => store.scanPhase === 'scouting')
 const isReconstructing = computed(() => store.scanPhase === 'reconstructing')
 const isFinishing = computed(() => store.scanPhase === 'finishing')
 
@@ -32,7 +33,7 @@ const handleStart = () => {
   store.prepareScan()
 }
 
-const historyData = [
+const historyData = ref([
   { 
     id: '1', 
     time: '10:45:12', 
@@ -44,20 +45,8 @@ const historyData = [
     weight: '75kg',
     dose: '12.4 mGy', 
     status: 'Completed',
-    params: {
-      type: '螺旋',
-      kV: '120',
-      mA: '250',
-      rotationTime: '0.5s',
-      collimation: '64x0.6mm',
-      pitch: '0.985',
-      speed: '39.4mm/s',
-      fov: '350mm'
-    },
-    reconPlans: [
-      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' },
-      { name: '骨窗', thickness: '1.25mm', interval: '1.25mm', kernel: 'Bone', ww: '1500', wl: '450' }
-    ]
+    params: { type: '螺旋', kV: '120', mA: '250', rotationTime: '0.5s', collimation: '64x0.6mm', pitch: '0.985', speed: '39.4mm/s', fov: '350mm' },
+    reconPlans: [ { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' }, { name: '骨窗', thickness: '1.25mm', interval: '1.25mm', kernel: 'Bone', ww: '1500', wl: '450' } ]
   },
   { 
     id: '2', 
@@ -70,20 +59,8 @@ const historyData = [
     weight: '58kg',
     dose: '45.2 mGy', 
     status: 'Completed',
-    params: {
-      type: '断层',
-      kV: '120',
-      mA: '300',
-      rotationTime: '1.0s',
-      collimation: '24x1.2mm',
-      increment: '5.0mm',
-      count: '24',
-      fov: '220mm'
-    },
-    reconPlans: [
-      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Brain', ww: '80', wl: '40' },
-      { name: '骨窗', thickness: '1.0mm', interval: '1.0mm', kernel: 'Sharp', ww: '2000', wl: '500' }
-    ]
+    params: { type: '断层', kV: '120', mA: '300', rotationTime: '1.0s', collimation: '24x1.2mm', increment: '5.0mm', count: '24', fov: '220mm' },
+    reconPlans: [ { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Brain', ww: '80', wl: '40' }, { name: '骨窗', thickness: '1.0mm', interval: '1.0mm', kernel: 'Sharp', ww: '2000', wl: '500' } ]
   },
   { 
     id: '3', 
@@ -96,25 +73,40 @@ const historyData = [
     weight: '82kg',
     dose: '18.1 mGy', 
     status: 'Cancelled',
-    params: {
-      type: '螺旋',
-      kV: '100',
-      mA: '200',
-      rotationTime: '0.75s',
-      collimation: '32x1.2mm',
-      pitch: '1.2',
-      speed: '25.6mm/s',
-      fov: '400mm'
-    },
-    reconPlans: [
-      { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' },
-      { name: '骨窗', thickness: '2.0mm', interval: '2.0mm', kernel: 'Bone', ww: '1200', wl: '300' }
-    ]
+    params: { type: '螺旋', kV: '100', mA: '200', rotationTime: '0.75s', collimation: '32x1.2mm', pitch: '1.2', speed: '25.6mm/s', fov: '400mm' },
+    reconPlans: [ { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' }, { name: '骨窗', thickness: '2.0mm', interval: '2.0mm', kernel: 'Bone', ww: '1200', wl: '300' } ]
   },
-];
+]);
 
-const selectedId = ref<string>(historyData[0]?.id ?? '1')
-const selectedActivity = computed(() => historyData.find(item => item.id === selectedId.value))
+const displayHistory = computed(() => {
+  const list = [...historyData.value];
+  if (store.patientStatus !== 'idle') {
+    const activeIdx = list.findIndex(p => p.id === store.activePatient.id);
+    const activeItem = {
+      id: store.activePatient.id,
+      time: 'NOW',
+      protocol: store.activePatient.protocol,
+      patientId: store.activePatient.id,
+      patientName: store.activePatient.name,
+      gender: store.activePatient.gender,
+      age: store.activePatient.age,
+      weight: store.activePatient.weight,
+      dose: '0.0 mGy',
+      status: store.patientStatus === 'inProgress' ? 'InProgress' : 'Completed',
+      params: { type: '螺旋', kV: '120', mA: '250', rotationTime: '0.5s', collimation: '64x0.6mm', pitch: '0.985', speed: '39.4mm/s', fov: '350mm' },
+      reconPlans: [ { name: '软组织窗', thickness: '5.0mm', interval: '5.0mm', kernel: 'Standard', ww: '400', wl: '40' }, { name: '骨窗', thickness: '1.25mm', interval: '1.25mm', kernel: 'Bone', ww: '1500', wl: '450' } ]
+    };
+    if (activeIdx >= 0) {
+      list[activeIdx] = activeItem;
+    } else {
+      list.unshift(activeItem);
+    }
+  }
+  return list;
+});
+
+const selectedId = ref<string>(displayHistory.value[0]?.id ?? '1')
+const selectedActivity = computed(() => displayHistory.value.find(item => item.id === selectedId.value))
 
 const faultCategories = [
   {
@@ -176,7 +168,7 @@ const faultCategories = [
       <div class="scan-main">
           <div class="scan-visualizer" :class="{ 'is-scanning': isScanning, 'is-reconstructing': isReconstructing }">
           <div class="exposure-indicator" v-if="isScanning">
-            EXPOSURE ACTIVE
+            {{ isScouting ? 'SCOUT ACTIVE' : 'EXPOSURE ACTIVE' }}
           </div>
           <div class="recon-indicator" v-if="isReconstructing">
             RECONSTRUCTING...
@@ -221,6 +213,45 @@ const faultCategories = [
             </div>
           </v-alert>
 
+          <!-- Workflow Confirmation Flow -->
+          <div class="workflow-stepper mb-6 d-flex justify-space-between align-center px-2 py-3 rounded-lg border">
+            <div class="step-item" :class="{ 'is-completed': store.patientInfoComplete }">
+              <v-icon size="small" :color="store.patientInfoComplete ? 'success' : 'grey'">
+                {{ store.patientInfoComplete ? 'mdi-check-circle' : 'mdi-account-circle-outline' }}
+              </v-icon>
+              <span class="step-text ml-2">患者信息</span>
+            </div>
+            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
+            <div class="step-item" :class="{ 'is-completed': store.protocolComplete }">
+              <v-icon size="small" :color="store.protocolComplete ? 'success' : 'grey'">
+                {{ store.protocolComplete ? 'mdi-check-circle' : 'mdi-playlist-check' }}
+              </v-icon>
+              <span class="step-text ml-2">参数确认</span>
+            </div>
+            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
+            <div class="step-item" :class="{ 'is-completed': store.scoutComplete }">
+              <v-icon size="small" :color="store.scoutComplete ? 'success' : 'grey'">
+                {{ store.scoutComplete ? 'mdi-check-circle' : 'mdi-vector-line' }}
+              </v-icon>
+              <span class="step-text ml-2">定位像</span>
+            </div>
+            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
+            <div class="step-item" :class="{ 'is-completed': store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete }">
+              <v-icon size="small" :color="(store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete) ? 'success' : 'grey'">
+                {{ (store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete) ? 'mdi-check-circle' : 'mdi-axis-z-arrow' }}
+              </v-icon>
+              <span class="step-text ml-2">螺旋/断层</span>
+            </div>
+            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
+            <div class="step-item" :class="{ 'is-completed': store.reconComplete }">
+              <v-icon size="small" :color="store.reconComplete ? 'success' : 'grey'">
+                {{ store.reconComplete ? 'mdi-check-circle' : 'mdi-image-multiple' }}
+              </v-icon>
+              <span class="step-text ml-2">重建</span>
+            </div>
+          </div>
+
+
 
           <!-- Row 1: Sequential Process Buttons -->
           <div class="action-buttons mb-3 d-flex gap-2">
@@ -249,17 +280,17 @@ const faultCategories = [
               使 能 (ENABLE)
             </v-btn>
 
-            <!-- 3. EXPOSURE -->
+            <!-- 3. EXPOSURE (Handles Scout or Planned Scan) -->
             <v-btn 
               color="deep-orange" 
               size="large" 
-              :disabled="store.scanPhase !== 'enabled' || store.eStopActive || store.heartbeatLost"
-              @click="store.startExposure"
-              :loading="store.scanPhase === 'exposing'"
+              :disabled="(store.scanPhase !== 'enabled' && store.scanPhase !== 'scout_exposed') || store.eStopActive || store.heartbeatLost"
+              @click="!store.scoutComplete ? store.startScout() : store.startExposure()"
+              :loading="store.scanPhase === 'exposing' || store.scanPhase === 'scouting'"
               prepend-icon="mdi-ray-start"
               class="flex-grow-1"
             >
-              曝 光 (EXPOSURE)
+              {{ !store.scoutComplete ? '曝 光 (SCOUT)' : '曝 光 (EXPOSURE)' }}
             </v-btn>
           </div>
 
@@ -269,7 +300,7 @@ const faultCategories = [
             <v-btn 
               color="teal" 
               size="large" 
-              :disabled="store.scanPhase !== 'exposed' || store.eStopActive || store.heartbeatLost"
+              :disabled="(store.scanPhase !== 'exposed' && store.scanPhase !== 'scout_exposed') || store.eStopActive || store.heartbeatLost"
               @click="store.startRecon"
               :loading="store.scanPhase === 'reconstructing'"
               prepend-icon="mdi-image-filter-hdr"
@@ -315,6 +346,7 @@ const faultCategories = [
             </v-btn>
           </div>
 
+
         </div>
       </div>
 
@@ -324,7 +356,7 @@ const faultCategories = [
           <div style="width: 240px">
             <v-combobox
               v-model="selectedId"
-              :items="historyData"
+              :items="displayHistory"
               item-title="patientId"
               item-value="id"
               density="compact"
@@ -335,6 +367,7 @@ const faultCategories = [
               :return-object="false"
               clearable
             >
+
               <template v-slot:item="{ props, item }">
                 <v-list-item v-bind="props" :subtitle="item.raw.protocol"></v-list-item>
               </template>
@@ -354,7 +387,7 @@ const faultCategories = [
           </thead>
           <tbody>
             <tr 
-              v-for="item in historyData" 
+              v-for="item in displayHistory" 
               :key="item.id"
               :class="{ 'selected-row': selectedId === item.id }"
               @click="selectedId = item.id"
@@ -367,13 +400,15 @@ const faultCategories = [
               <td>
                 <v-chip
                   size="x-small"
-                  :color="item.status === 'Completed' ? 'success' : 'error'"
+                  :color="item.status === 'Completed' ? 'success' : (item.status === 'InProgress' ? 'info' : 'error')"
                   variant="flat"
+                  :class="{ 'status-pulsing': item.status === 'InProgress' }"
                 >
-                  {{ item.status }}
+                  {{ item.status === 'InProgress' ? '进行中' : item.status }}
                 </v-chip>
               </td>
             </tr>
+
           </tbody>
         </v-table>
 
@@ -792,5 +827,36 @@ const faultCategories = [
   0% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0.4); }
   70% { box-shadow: 0 0 0 20px rgba(var(--v-theme-success), 0); }
   100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0); }
+}
+
+.workflow-stepper {
+  background: rgba(var(--v-theme-on-surface), 0.02);
+  border-color: rgba(var(--v-theme-on-surface), 0.1) !important;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: all 0.3s;
+}
+
+.step-item.is-completed {
+  opacity: 1;
+}
+
+.step-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-pulsing {
+  animation: pulse-info 2s infinite;
+}
+
+@keyframes pulse-info {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
 }
 </style>

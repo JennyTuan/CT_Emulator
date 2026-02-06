@@ -48,7 +48,7 @@ const statusClass = (status: string) =>
           </v-tabs-window>
         </div>
 
-        <div class="tasks-section">
+        <div class="tasks-section flex-grow-1">
           <h4 class="section-subtitle">SUBSYSTEM HEALTH</h4>
           <v-list density="compact" class="transparent">
             <v-list-item v-for="item in maintenanceTasks" :key="item.title" class="task-item px-0">
@@ -65,31 +65,6 @@ const statusClass = (status: string) =>
               </template>
             </v-list-item>
           </v-list>
-        </div>
-
-        <div class="logs-section">
-          <div class="logs-header">
-            <h4 class="section-subtitle">SYSTEM LOGS (REAL-TIME)</h4>
-            <v-btn
-              size="x-small"
-              variant="tonal"
-              prepend-icon="mdi-trash-can-outline"
-              @click="store.clearLogs()"
-            >
-              清空
-            </v-btn>
-          </div>
-          <div class="log-viewport">
-            <div v-if="store.logs.length === 0" class="log-empty">暂无日志</div>
-            <div
-              v-for="entry in store.logs"
-              :key="entry.id"
-              class="log-entry"
-              :class="entry.level"
-            >
-              [{{ entry.time }}] {{ entry.message }}
-            </div>
-          </div>
         </div>
       </div>
     </v-card-text>
@@ -121,17 +96,6 @@ const statusClass = (status: string) =>
 .tasks-section {
   flex: 1;
   min-width: 0;
-}
-
-.logs-section {
-  flex: 1.2;
-  min-width: 0;
-}
-
-.logs-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .custom-tabs-nav {
@@ -172,32 +136,6 @@ const statusClass = (status: string) =>
 .dot.success { background-color: rgb(var(--v-theme-success)); }
 .dot.warning { background-color: rgb(var(--v-theme-warning)); }
 .dot.grey { background-color: #666; }
-
-.log-viewport {
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 4px;
-  padding: 12px;
-  height: 400px;
-  overflow-y: auto;
-  font-family: 'Consolas', monospace;
-  font-size: 0.75rem;
-}
-
-.log-entry {
-  margin-bottom: 4px;
-  border-left: 2px solid transparent;
-  padding-left: 8px;
-}
-
-.log-entry.info { opacity: 0.6; border-left-color: rgb(var(--v-theme-primary)); }
-.log-entry.warn { color: rgb(var(--v-theme-warning)); border-left-color: rgb(var(--v-theme-warning)); }
-.log-entry.error { color: rgb(var(--v-theme-error)); border-left-color: rgb(var(--v-theme-error)); background: rgba(var(--v-theme-error), 0.05); }
-.log-entry.success { color: rgb(var(--v-theme-success)); border-left-color: rgb(var(--v-theme-success)); }
-
-.log-empty {
-  opacity: 0.5;
-}
 
 @media (max-width: 1200px) {
   .maintenance-content {
