@@ -24,7 +24,7 @@ import {
 } from '../constants/simulator'
 
 export type ProcessStatus = 'idle' | 'running' | 'paused' | 'finished' | 'error'
-export type ScanPhase = 'idle' | 'prepared' | 'enabling' | 'enabled' | 'scouting' | 'scout_exposed' | 'exposing' | 'exposed' | 'reconstructing' | 'finishing' | 'error'
+export type ScanPhase = 'Init' | 'ScanRequest' | 'ScanStart' | 'MoveWait' | 'ScanWait' | 'ExposureStart' | 'SendImage' | 'error'
 export type PatientStatus = 'idle' | 'inProgress' | 'completed' | 'cancelled'
 export type LogLevel = 'info' | 'warn' | 'error' | 'success'
 
@@ -84,8 +84,9 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const isMoving = ref(false)
 
     // --- SCAN MACHINE ---
-    const scanPhase = ref<ScanPhase>('idle')
+    const scanPhase = ref<ScanPhase>('Init')
     const scanStatus = ref<'idle' | 'ready' | 'scanning' | 'error'>('idle')
+    const autoScan = ref(false)
     const errorMessage = ref('')
 
     // --- MOTION FAULTS & GLOBAL ---
@@ -180,7 +181,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const triggerEStop = (msg: string = 'EMERGENCY STOP ACTIVE') => {
         eStopActive.value = true
         scanStatus.value = 'error'
-        scanPhase.value = 'error'
+        scanPhase.value = 'Init'
         errorMessage.value = msg
         addLog('error', `急停触发：${msg}`)
         isMoving.value = false
@@ -196,8 +197,8 @@ export const useSimulatorStore = defineStore('simulator', () => {
         faultSimActive.value = false
         errorMessage.value = ''
         addLog('info', '急停已复位')
-        if (scanPhase.value === 'error') {
-            scanPhase.value = 'idle'
+        if (scanPhase.value === 'Init' || scanStatus.value === 'error') {
+            scanPhase.value = 'Init'
             scanStatus.value = 'idle'
             currentSlice.value = 0
         }
@@ -368,31 +369,37 @@ export const useSimulatorStore = defineStore('simulator', () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
 
     const prepareScan = async () => {
-        if (scanPhase.value === 'error' || eStopActive.value) {
-            resetEStop()
-        }
-        scanPhase.value = 'prepared'
-        scanStatus.value = 'ready'
-        currentSlice.value = 0
-        addLog('info', '扫描准备完成')
+        if (scanPhase.value !== 'Init' && scanPhase.value !== 'SendImage') return
+        scanPhase.value = 'ScanRequest'
+        addLog('info', '收到扫描请求 (ScanRequest)')
+        await delay(1000)
+        if (autoScan.value) enableScan()
     }
 
     const enableScan = async () => {
-        if (scanPhase.value !== 'prepared') return
-        scanPhase.value = 'enabling'
-        addLog('info', '扫描上电使能中')
+        if (scanPhase.value !== 'ScanRequest') return
+        scanPhase.value = 'ScanStart'
+        addLog('info', '扫描启动中 (ScanStart)')
         await delay(ENABLE_DELAY_MS)
         if ((scanPhase.value as string) === 'error') return
-        scanPhase.value = 'enabled'
-        addLog('success', '扫描使能完成')
+
+        scanPhase.value = 'MoveWait'
+        addLog('info', '等待机械到位 (MoveWait)...')
+        await delay(1500)
+
+        scanPhase.value = 'ScanWait'
+        addLog('success', '使能完成，准备曝光 (ScanWait)')
+        if (autoScan.value) startExposureAction()
     }
 
-    const startExposure = async () => {
-        if (scanPhase.value !== 'enabled' && scanPhase.value !== 'scout_exposed') return
-        scanPhase.value = 'exposing'
+    const startExposureAction = async () => {
+        if (scanPhase.value !== 'ScanWait') return
+
+        scanPhase.value = 'ExposureStart'
         scanStatus.value = 'scanning'
         exposureActive.value = true
-        addLog('info', '开始曝光')
+        addLog('info', '开始曝光 (ExposureStart)')
+
         await nextTick()
 
         try {
@@ -414,51 +421,27 @@ export const useSimulatorStore = defineStore('simulator', () => {
                 }, SCAN_INTERVAL_MS)
             })
 
-            scanPhase.value = 'exposed'
-            addLog('success', '曝光完成')
+            scanPhase.value = 'SendImage'
+            addLog('success', '曝光完成，正在传输图像 (SendImage)')
+            await delay(2000)
+            addLog('success', '检查流程结束')
+            patientStatus.value = 'completed'
+            if (autoScan.value) startRecon()
         } catch (e) {
             console.error(e)
         }
     }
 
     const startRecon = async () => {
-        if (scanPhase.value !== 'exposed' && scanPhase.value !== 'scout_exposed') return
-
-        try {
-            scanPhase.value = 'reconstructing'
-            scanStatus.value = 'scanning'
-            addLog('info', '开始重建')
-            await delay(RECON_DELAY_MS)
-            if ((scanPhase.value as string) === 'error') return
-
-            scanPhase.value = 'finishing'
-            await delay(FINISH_DELAY_MS)
-            if ((scanPhase.value as string) === 'error') return
-
-            scanPhase.value = 'idle'
-            scanStatus.value = 'idle'
-            reconComplete.value = true
-            patientStatus.value = 'completed'
-            addLog('success', '重建完成，检查结束')
-        } catch (e) {
-            console.error(e)
-        }
+        // ... Recon is now part of SendImage logic effectively, or can be triggered after SendImage
+        if (scanPhase.value !== 'SendImage') return
+        scanPhase.value = 'Init'
+        scanStatus.value = 'idle'
+        reconComplete.value = true
+        addLog('success', '重建任务已启动')
     }
 
-    const startScout = async () => {
-        if (scanPhase.value !== 'enabled') return
-        scanPhase.value = 'scouting'
-        scanStatus.value = 'scanning'
-        exposureActive.value = true
-        addLog('info', '开始定位像 (Scout) 扫描')
-
-        // Short exposure for scout
-        await delay(2000)
-        exposureActive.value = false
-        scanPhase.value = 'scout_exposed'
-        scoutComplete.value = true
-        addLog('success', '定位像扫描完成')
-    }
+    // StartScout is removed or integrated into the single Exposure flow
 
     const failScan = (msg?: string) => {
         faultSimActive.value = true
@@ -473,7 +456,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         scoutComplete.value = false
         scanComplete.value = false
         reconComplete.value = false
-        scanPhase.value = 'idle'
+        scanPhase.value = 'Init'
         scanStatus.value = 'idle'
         currentSlice.value = 0
         exposureActive.value = false
@@ -510,7 +493,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         warmUpStatus, warmUpProgress, currentHeatCapacity, targetHeatCapacity,
         airCalStatus, airCalProgress, airCalParams, completedAirCalCombinations,
         gantryPosition, tableVertical, tableHorizontal, isMoving,
-        scanStatus, scanPhase, errorMessage,
+        scanStatus, scanPhase, autoScan, errorMessage,
         motionLimitFault, gantryStuck, outOfSync, heartbeatLost, responseDelay, faultSimActive,
         currentSlice, totalSlices, exposureActive,
         tubeTemp, tubeOverheat,
@@ -521,7 +504,7 @@ export const useSimulatorStore = defineStore('simulator', () => {
         confirmPatientInfo, confirmProtocolParameters,
         startWarmUp, pauseWarmUp, resumeWarmUp, failWarmUp, resetWarmUp,
         startAirCal, pauseAirCal, resumeAirCal, failAirCal, resetAirCal, clearAirCalRecords,
-        moveGantry, setMotionFault, prepareScan, enableScan, startScout, startExposure, startRecon, failScan, resetSystem,
+        moveGantry, setMotionFault, prepareScan, enableScan, startExposure: startExposureAction, startRecon, failScan, resetSystem,
         addLog,
         clearLogs
     }

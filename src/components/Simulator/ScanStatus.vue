@@ -23,14 +23,29 @@ const scanStatusLabel = computed(() =>
   store.scanStatus === 'error' ? 'ALARM / ERROR' : (store.scanStatus || 'idle').toUpperCase()
 )
 const scanPhaseLabel = computed(() => store.scanPhase.toUpperCase())
-const showPhaseChip = computed(() => store.scanPhase !== 'idle')
+const showPhaseChip = computed(() => store.scanPhase !== 'Init')
 const isScanning = computed(() => store.exposureActive)
-const isScouting = computed(() => store.scanPhase === 'scouting')
-const isReconstructing = computed(() => store.scanPhase === 'reconstructing')
-const isFinishing = computed(() => store.scanPhase === 'finishing')
+const isFinishing = computed(() => store.scanPhase === 'SendImage')
 
 const handleStart = () => {
   store.prepareScan()
+}
+
+const steps = [
+  { key: 'Init', label: 'Init' },
+  { key: 'ScanRequest', label: 'ScanRequest' },
+  { key: 'ScanStart', label: 'ScanStart' },
+  { key: 'MoveWait', label: 'MoveWait' },
+  { key: 'ScanWait', label: 'ScanWait' },
+  { key: 'ExposureStart', label: 'ExposureStart' },
+  { key: 'SendImage', label: 'SendImage' }
+]
+
+const getStepCompleted = (stepKey: string) => {
+  const currentStepIdx = steps.findIndex(s => s.key === store.scanPhase)
+  const targetStepIdx = steps.findIndex(s => s.key === stepKey)
+  if (currentStepIdx === -1) return false
+  return currentStepIdx >= targetStepIdx
 }
 
 const historyData = ref([
@@ -158,44 +173,44 @@ const faultCategories = [
 <template>
   <v-card class="scan-card mb-4" variant="flat">
     <v-card-title class="card-title-container pa-4">
-      <v-icon color="primary" class="mr-2">mdi-barcode-scan</v-icon>
-      <span>SCAN STATE MACHINE</span>
-      <v-spacer></v-spacer>
-      <v-btn size="x-small" color="error" variant="text" @click="store.resetSystem">FORCE RESET SYSTEM</v-btn>
-    </v-card-title>
-    
-    <v-card-text class="pa-4">
-      <div class="scan-main">
-          <div class="scan-visualizer" :class="{ 'is-scanning': isScanning, 'is-reconstructing': isReconstructing }">
-          <div class="exposure-indicator" v-if="isScanning">
-            {{ isScouting ? 'SCOUT ACTIVE' : 'EXPOSURE ACTIVE' }}
-          </div>
-          <div class="recon-indicator" v-if="isReconstructing">
-            RECONSTRUCTING...
-          </div>
-          <div class="finish-indicator" v-if="isFinishing">
-            FINISHING...
-          </div>
-          <div class="slice-counter">
-            <span class="current">{{ store.currentSlice }}</span>
-            <span class="separator">/</span>
-            <span class="total">{{ store.totalSlices }} SLICES</span>
-          </div>
-          <v-progress-circular
-            :model-value="progressPercent"
-            :color="scanStatusColor"
-            :size="180"
-            :width="12"
-          >
-            <span class="progress-percent">{{ progressPercent }}%</span>
-          </v-progress-circular>
-        </div>
+      <v-icon color="primary" class="mr-2">mdi-scan-helper</v-icon>
+      <span class="mr-4">SCAN STATE MACHINE</span>
+      
+      <div class="auto-scan-chip d-flex align-center ml-2">
+        <v-chip
+          size="small"
+          :color="store.autoScan ? 'success' : 'grey-lighten-1'"
+          variant="tonal"
+          class="font-weight-black pr-1"
+        >
+          <template v-slot:prepend>
+            <v-icon size="14" class="mr-1">{{ store.autoScan ? 'mdi-robot' : 'mdi-robot-off' }}</v-icon>
+          </template>
+          AUTO SCAN
+          <v-switch
+            v-model="store.autoScan"
+            hide-details
+            density="compact"
+            color="success"
+            inset
+            class="ml-2 mt-0 custom-mini-switch"
+          ></v-switch>
+        </v-chip>
+      </div>
 
-        <div class="scan-controls">
+      <v-spacer></v-spacer>
+      <v-btn variant="text" size="x-small" color="error" class="font-weight-bold" @click="store.resetSystem()">FORCE RESET SYSTEM</v-btn>
+    </v-card-title>
+
+    <v-card-text class="pa-4 pt-2">
+      <div class="scan-container">
+        
+        <!-- Left: State & Visualizer -->
+        <div class="scan-visual-panel">
           <v-alert
-            variant="tonal"
             :color="scanStatusColor"
-            class="status-banner mb-6"
+            variant="tonal"
+            class="mb-6 state-alert"
             density="compact"
           >
             <div class="d-flex align-center justify-space-between">
@@ -213,84 +228,90 @@ const faultCategories = [
             </div>
           </v-alert>
 
-          <!-- Workflow Confirmation Flow -->
-          <div class="workflow-stepper mb-6 d-flex justify-space-between align-center px-2 py-3 rounded-lg border">
-            <div class="step-item" :class="{ 'is-completed': store.patientInfoComplete }">
-              <v-icon size="small" :color="store.patientInfoComplete ? 'success' : 'grey'">
-                {{ store.patientInfoComplete ? 'mdi-check-circle' : 'mdi-account-circle-outline' }}
-              </v-icon>
-              <span class="step-text ml-2">患者信息</span>
-            </div>
-            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
-            <div class="step-item" :class="{ 'is-completed': store.protocolComplete }">
-              <v-icon size="small" :color="store.protocolComplete ? 'success' : 'grey'">
-                {{ store.protocolComplete ? 'mdi-check-circle' : 'mdi-playlist-check' }}
-              </v-icon>
-              <span class="step-text ml-2">参数确认</span>
-            </div>
-            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
-            <div class="step-item" :class="{ 'is-completed': store.scoutComplete }">
-              <v-icon size="small" :color="store.scoutComplete ? 'success' : 'grey'">
-                {{ store.scoutComplete ? 'mdi-check-circle' : 'mdi-vector-line' }}
-              </v-icon>
-              <span class="step-text ml-2">定位像</span>
-            </div>
-            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
-            <div class="step-item" :class="{ 'is-completed': store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete }">
-              <v-icon size="small" :color="(store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete) ? 'success' : 'grey'">
-                {{ (store.scanPhase === 'exposed' || store.scanPhase === 'reconstructing' || store.reconComplete) ? 'mdi-check-circle' : 'mdi-axis-z-arrow' }}
-              </v-icon>
-              <span class="step-text ml-2">螺旋/断层</span>
-            </div>
-            <v-icon size="x-small" color="grey-lighten-1">mdi-chevron-right</v-icon>
-            <div class="step-item" :class="{ 'is-completed': store.reconComplete }">
-              <v-icon size="small" :color="store.reconComplete ? 'success' : 'grey'">
-                {{ store.reconComplete ? 'mdi-check-circle' : 'mdi-image-multiple' }}
-              </v-icon>
-              <span class="step-text ml-2">重建</span>
+          <div class="scan-main">
+            <div class="scan-visualizer" :class="{ 'is-scanning': isScanning }">
+              <div class="exposure-indicator" v-if="isScanning">
+                EXPOSURE ACTIVE
+              </div>
+              <div class="finish-indicator" v-if="isFinishing">
+                PROCESSING...
+              </div>
+              
+              <!-- Progress Ring -->
+              <div class="progress-ring-container">
+                <v-progress-circular
+                  :model-value="progressPercent"
+                  :size="200"
+                  :width="12"
+                  :color="scanStatusColor"
+                  class="pulse-ring"
+                >
+                  <div class="progress-content">
+                    <div class="percent">{{ progressPercent }}%</div>
+                    <div class="slices">{{ store.currentSlice }} / {{ store.totalSlices }}</div>
+                    <div class="label">SLICES</div>
+                  </div>
+                </v-progress-circular>
+              </div>
             </div>
           </div>
+        </div>
 
+        <!-- Right: Controls & Workflow -->
+        <div class="scan-controls-panel">
+          
+          <!-- Technical Workflow Stepper -->
+          <div class="technical-workflow mb-6 d-flex justify-space-between align-center px-1 py-4 rounded-lg border">
+            <template v-for="(step, index) in steps" :key="step.key">
+              <div class="step-column d-flex flex-column align-center" :class="{ 'is-active': store.scanPhase === step.key, 'is-completed': getStepCompleted(step.key) }">
+                <div class="step-node mb-2">
+                  <v-icon v-if="getStepCompleted(step.key)" size="x-small" color="white">mdi-check</v-icon>
+                  <span v-else class="step-index">{{ index + 1 }}</span>
+                </div>
+                <span class="step-label">{{ step.label }}</span>
+              </div>
+              <div v-if="index < steps.length - 1" class="step-connector"></div>
+            </template>
+          </div>
 
-
-          <!-- Row 1: Sequential Process Buttons -->
+          <!-- Sequential Process Buttons -->
           <div class="action-buttons mb-3 d-flex gap-2">
-            <!-- 1. START SCAN (PREPARE) -->
+            <!-- 1. START SCAN -->
             <v-btn 
               color="primary" 
               size="large" 
-              :disabled="((store.scanPhase !== 'idle' && store.scanPhase !== 'error' && !!store.scanPhase) && !store.eStopActive) || store.heartbeatLost"
+              :disabled="(store.scanPhase !== 'Init' && store.scanPhase !== 'SendImage') || store.eStopActive || store.heartbeatLost"
               @click="handleStart"
               prepend-icon="mdi-play-circle-outline"
               class="flex-grow-1"
             >
-              {{ store.scanPhase === 'error' ? 'RESTART' : 'START SCAN' }}
+              START SCAN
             </v-btn>
 
             <!-- 2. ENABLE -->
             <v-btn 
               color="indigo" 
               size="large" 
-              :disabled="store.scanPhase !== 'prepared' || store.eStopActive || store.heartbeatLost"
+              :disabled="store.scanPhase !== 'ScanRequest' || store.eStopActive || store.heartbeatLost"
               @click="store.enableScan"
-              :loading="store.scanPhase === 'enabling'"
+              :loading="store.scanPhase === 'ScanStart' || store.scanPhase === 'MoveWait' || store.scanPhase === 'ScanWait' && store.scanStatus === 'ready'"
               prepend-icon="mdi-power-plug"
               class="flex-grow-1"
             >
               使 能 (ENABLE)
             </v-btn>
 
-            <!-- 3. EXPOSURE (Handles Scout or Planned Scan) -->
+            <!-- 3. EXPOSURE -->
             <v-btn 
               color="deep-orange" 
               size="large" 
-              :disabled="(store.scanPhase !== 'enabled' && store.scanPhase !== 'scout_exposed') || store.eStopActive || store.heartbeatLost"
-              @click="!store.scoutComplete ? store.startScout() : store.startExposure()"
-              :loading="store.scanPhase === 'exposing' || store.scanPhase === 'scouting'"
+              :disabled="store.scanPhase !== 'ScanWait' || store.eStopActive || store.heartbeatLost"
+              @click="store.startExposure()"
+              :loading="store.scanPhase === 'ExposureStart'"
               prepend-icon="mdi-ray-start"
               class="flex-grow-1"
             >
-              {{ !store.scoutComplete ? '曝 光 (SCOUT)' : '曝 光 (EXPOSURE)' }}
+              曝 光 (EXPOSURE)
             </v-btn>
           </div>
 
@@ -300,9 +321,8 @@ const faultCategories = [
             <v-btn 
               color="teal" 
               size="large" 
-              :disabled="(store.scanPhase !== 'exposed' && store.scanPhase !== 'scout_exposed') || store.eStopActive || store.heartbeatLost"
+              :disabled="store.scanPhase !== 'SendImage' || store.eStopActive || store.heartbeatLost"
               @click="store.startRecon"
-              :loading="store.scanPhase === 'reconstructing'"
               prepend-icon="mdi-image-filter-hdr"
               class="flex-grow-1"
             >
@@ -334,7 +354,6 @@ const faultCategories = [
               </v-list>
             </v-menu>
 
-
             <v-btn 
               :color="store.eStopActive ? 'success' : 'error'" 
               size="large" 
@@ -345,219 +364,142 @@ const faultCategories = [
               {{ store.eStopActive ? 'RESET / 解除急停' : 'STOP / E-STOP' }}
             </v-btn>
           </div>
-
-
         </div>
       </div>
 
       <div class="scan-history mt-6">
         <div class="d-flex align-center justify-space-between mb-3">
           <h4 class="history-title">最近活动</h4>
-          <div style="width: 240px">
-            <v-combobox
-              v-model="selectedId"
-              :items="displayHistory"
-              item-title="patientId"
-              item-value="id"
-              density="compact"
-              label="查询"
-              prepend-inner-icon="mdi-magnify"
-              hide-details
-              variant="outlined"
-              :return-object="false"
-              clearable
-            >
-
-              <template v-slot:item="{ props, item }">
-                <v-list-item v-bind="props" :subtitle="item.raw.protocol"></v-list-item>
-              </template>
-            </v-combobox>
-          </div>
+          <v-select
+            v-model="selectedId"
+            :items="displayHistory"
+            item-title="patientId"
+            item-value="id"
+            density="compact"
+            variant="outlined"
+            label="查阅"
+            hide-details
+            style="width: 200px"
+          >
+            <template v-slot:prepend-inner>
+              <v-icon size="small">mdi-magnify</v-icon>
+            </template>
+          </v-select>
         </div>
 
-        <v-table density="compact" class="history-table mb-4">
+        <v-table density="compact" class="history-table border rounded">
           <thead>
             <tr>
-              <th class="text-left">Time</th>
-              <th class="text-left">Protocol</th>
-              <th class="text-left">Patient ID</th>
-              <th class="text-left">Dose (CTDIvol)</th>
-              <th class="text-left">Status</th>
+              <th class="text-left font-weight-bold">Time</th>
+              <th class="text-left font-weight-bold">Protocol</th>
+              <th class="text-left font-weight-bold">Patient ID</th>
+              <th class="text-left font-weight-bold">Dose (CTDIvol)</th>
+              <th class="text-left font-weight-bold">Status</th>
             </tr>
           </thead>
           <tbody>
             <tr 
               v-for="item in displayHistory" 
-              :key="item.id"
-              :class="{ 'selected-row': selectedId === item.id }"
+              :key="item.id" 
+              :class="{ 'active-row': item.id === selectedId }"
               @click="selectedId = item.id"
-              class="clickable-row"
             >
               <td>{{ item.time }}</td>
               <td>{{ item.protocol }}</td>
-              <td><code class="pid-code">{{ item.patientId }}</code></td>
+              <td class="text-primary font-weight-bold">{{ item.patientId }}</td>
               <td>{{ item.dose }}</td>
               <td>
-                <v-chip
-                  size="x-small"
-                  :color="item.status === 'Completed' ? 'success' : (item.status === 'InProgress' ? 'info' : 'error')"
-                  variant="flat"
-                  :class="{ 'status-pulsing': item.status === 'InProgress' }"
-                >
-                  {{ item.status === 'InProgress' ? '进行中' : item.status }}
+                <v-chip size="x-small" :color="item.status === 'Completed' ? 'success' : item.status === 'Cancelled' ? 'error' : 'info'" variant="flat">
+                  {{ item.status }}
                 </v-chip>
               </td>
             </tr>
-
           </tbody>
         </v-table>
 
-        <!-- Protocol Details Panel -->
-          <v-expand-transition>
-            <div v-if="selectedActivity" class="protocol-details-panel pa-4 rounded">
-              
-              <!-- Patient Info Section -->
-              <div class="patient-info-banner mb-6 pa-3 rounded border">
-                <div class="d-flex align-center mb-2">
-                  <v-icon color="primary" class="mr-2">mdi-account-details</v-icon>
-                  <span class="text-subtitle-2 font-weight-bold">患者基本信息</span>
-                </div>
-                <v-row dense>
-                  <v-col cols="3">
-                    <div class="info-item">
-                      <span class="info-label">姓名:</span>
-                      <span class="info-value">{{ selectedActivity.patientName }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="3">
-                    <div class="info-item">
-                      <span class="info-label">性别:</span>
-                      <span class="info-value">{{ selectedActivity.gender === 'M' ? '男 (Male)' : '女 (Female)' }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="2">
-                    <div class="info-item">
-                      <span class="info-label">年龄:</span>
-                      <span class="info-value">{{ selectedActivity.age }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="2">
-                    <div class="info-item">
-                      <span class="info-label">体重:</span>
-                      <span class="info-value">{{ selectedActivity.weight }}</span>
-                    </div>
-                  </v-col>
-                  <v-col cols="2">
-                    <div class="info-item text-right">
-                      <span class="info-label">ID:</span>
-                      <span class="info-value text-caption">{{ selectedActivity.patientId }}</span>
-                    </div>
-                  </v-col>
-                </v-row>
-              </div>
-
-              <div class="d-flex align-center mb-3">
-                <v-icon color="primary" class="mr-2">mdi-clipboard-text-outline</v-icon>
-                <span class="text-subtitle-2 font-weight-bold">协议参数详情: {{ selectedActivity.protocol }}</span>
-                <v-chip size="small" color="primary" variant="flat" class="ml-2">{{ selectedActivity.params.type }}模式</v-chip>
-              </div>
-            
-            <v-row dense>
-              <v-col cols="3">
-                <div class="param-item">
-                  <span class="param-label">管电压 (kV)</span>
-                  <span class="param-value">{{ selectedActivity.params.kV }}</span>
-                </div>
-              </v-col>
-              <v-col cols="3">
-                <div class="param-item">
-                  <span class="param-label">管电流 (mA)</span>
-                  <span class="param-value">{{ selectedActivity.params.mA }}</span>
-                </div>
-              </v-col>
-              <v-col cols="3">
-                <div class="param-item">
-                  <span class="param-label">旋转时间</span>
-                  <span class="param-value">{{ selectedActivity.params.rotationTime }}</span>
-                </div>
-              </v-col>
-              <v-col cols="3">
-                <div class="param-item">
-                  <span class="param-label">准直器宽度</span>
-                  <span class="param-value">{{ selectedActivity.params.collimation }}</span>
-                </div>
-              </v-col>
-              
-              <template v-if="selectedActivity.params.type === '螺旋'">
-                <v-col cols="3">
-                  <div class="param-item">
-                    <span class="param-label">螺旋螺距 (Pitch)</span>
-                    <span class="param-value">{{ selectedActivity.params.pitch }}</span>
-                  </div>
-                </v-col>
-                <v-col cols="3">
-                  <div class="param-item">
-                    <span class="param-label">进床速度</span>
-                    <span class="param-value">{{ selectedActivity.params.speed }}</span>
-                  </div>
-                </v-col>
-              </template>
-              
-              <template v-else>
-                <v-col cols="3">
-                  <div class="param-item">
-                    <span class="param-label">扫描间距</span>
-                    <span class="param-value">{{ selectedActivity.params.increment }}</span>
-                  </div>
-                </v-col>
-                <v-col cols="3">
-                  <div class="param-item">
-                    <span class="param-label">扫描周数</span>
-                    <span class="param-value">{{ selectedActivity.params.count }}</span>
-                  </div>
-                </v-col>
-              </template>
-
-              <v-col cols="3">
-                <div class="param-item">
-                  <span class="param-label">扫描视野 (FOV)</span>
-                  <span class="param-value">{{ selectedActivity.params.fov }}</span>
-                </div>
-              </v-col>
-            </v-row>
-
-            <!-- Reconstruction Plans Section -->
-            <div class="d-flex align-center mb-3 mt-6">
-              <v-icon color="secondary" class="mr-2">mdi-image-edit-outline</v-icon>
-              <span class="text-subtitle-2 font-weight-bold">重建方案参数</span>
+        <v-sheet 
+          v-if="selectedActivity" 
+          class="history-detail-panel mt-4 pa-4 rounded-lg border-thin" 
+          color="on-surface"
+          style="--v-activated-opacity: 0.04"
+          variant="tonal"
+        >
+          <div class="d-flex align-center mb-4">
+             <v-icon color="primary" class="mr-2">mdi-account-details</v-icon>
+             <span class="text-subtitle-2 font-weight-bold">患者基本信息</span>
+          </div>
+          <div class="d-flex align-center justify-space-between px-2" style="max-width: 100%;">
+            <div class="detail-item">
+              <div class="detail-label">姓名</div>
+              <div class="detail-value text-on-surface">{{ selectedActivity.patientName }}</div>
             </div>
-            
-            <v-row dense>
-              <v-col v-for="plan in selectedActivity.reconPlans" :key="plan.name" cols="6">
-                <div class="recon-plan-card pa-3 border rounded">
-                  <div class="d-flex align-center justify-space-between mb-2">
-                    <span class="plan-name font-weight-bold">{{ plan.name }}</span>
-                    <v-chip size="x-small" :color="plan.name === '骨窗' ? 'orange' : 'teal'" variant="tonal">
-                      {{ plan.kernel }}
-                    </v-chip>
-                  </div>
-                  <v-row dense>
-                    <v-col cols="4"><div class="mini-param"><span class="l">层厚:</span> {{ plan.thickness }}</div></v-col>
-                    <v-col cols="4"><div class="mini-param"><span class="l">间距:</span> {{ plan.interval }}</div></v-col>
-                    <v-col cols="4"><div class="mini-param"><span class="l">算法:</span> {{ plan.kernel }}</div></v-col>
-                    <v-col cols="6"><div class="mini-param"><span class="l">窗宽 (WW):</span> {{ plan.ww }}</div></v-col>
-                    <v-col cols="6"><div class="mini-param"><span class="l">窗位 (WL):</span> {{ plan.wl }}</div></v-col>
-                  </v-row>
-                </div>
-              </v-col>
-            </v-row>
-
-
+            <div class="detail-item">
+              <div class="detail-label">性别</div>
+              <div class="detail-value text-on-surface">{{ selectedActivity.gender === 'M' ? '男 (Male)' : '女 (Female)' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">年龄</div>
+              <div class="detail-value text-on-surface">{{ selectedActivity.age }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">体重</div>
+              <div class="detail-value text-on-surface">{{ selectedActivity.weight }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">ID</div>
+              <div class="detail-value text-primary font-weight-black">{{ selectedActivity.patientId }}</div>
+            </div>
+          </div>
+          
+          <v-divider class="my-4 op-10"></v-divider>
+          
+          <div class="d-flex align-center mb-4">
+             <v-icon color="secondary" class="mr-2">mdi-playlist-edit</v-icon>
+             <span class="text-subtitle-2 font-weight-bold">协议参数详情: {{ selectedActivity.protocol }}</span>
+             <v-chip size="x-small" class="ml-2" color="primary" variant="flat">{{ selectedActivity.params.type }}模式</v-chip>
+          </div>
+          
+          <div class="d-flex flex-wrap align-center justify-space-between px-2" style="max-width: 100%;">
+            <div v-for="(val, key) in selectedActivity.params" :key="key" class="detail-item" v-show="key !== 'type'">
+              <div class="detail-label text-uppercase">{{ key }}</div>
+              <div class="detail-value text-on-surface">{{ val }}</div>
+            </div>
           </div>
 
-        </v-expand-transition>
-      </div>
+          <v-divider class="my-4 op-10"></v-divider>
 
+          <div class="d-flex align-center mb-4">
+             <v-icon color="info" class="mr-2">mdi-layers-outline</v-icon>
+             <span class="text-subtitle-2 font-weight-bold">重建方案参数</span>
+          </div>
+
+          <div class="d-flex gap-4">
+            <v-card v-for="plan in selectedActivity.reconPlans" :key="plan.name" class="recon-plan-mini-card pa-3 border-thin flex-grow-1" flat border>
+              <div class="d-flex justify-space-between align-center mb-2">
+                <span class="text-caption font-weight-bold text-primary">{{ plan.name }}</span>
+                <v-chip size="x-small" variant="tonal" color="success">Standard</v-chip>
+              </div>
+              <v-row dense>
+                <v-col cols="6">
+                   <div class="mini-label">层厚: {{ plan.thickness }}</div>
+                </v-col>
+                <v-col cols="6">
+                   <div class="mini-label">间距: {{ plan.interval }}</div>
+                </v-col>
+                <v-col cols="12">
+                   <div class="mini-label">算法: {{ plan.kernel }}</div>
+                </v-col>
+                <v-col cols="6">
+                   <div class="mini-label">窗宽 (WW): {{ plan.ww }}</div>
+                </v-col>
+                <v-col cols="6">
+                   <div class="mini-label">窗位 (WL): {{ plan.wl }}</div>
+                </v-col>
+              </v-row>
+            </v-card>
+          </div>
+        </v-sheet>
+      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -565,6 +507,8 @@ const faultCategories = [
 <style scoped>
 .scan-card {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgba(var(--v-theme-surface), 0.7);
+  backdrop-filter: blur(10px);
 }
 
 .card-title-container {
@@ -574,289 +518,289 @@ const faultCategories = [
   font-weight: bold;
 }
 
-.scan-main {
+.scan-container {
   display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.scan-visualizer {
-  flex: 0 0 240px;
-  height: 240px;
-  position: relative;
+.scan-visual-panel {
+  flex: 0 0 320px;
+}
+
+.scan-controls-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.state-alert {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+}
+
+.scan-main {
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  border-radius: 12px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  border-radius: 50%;
-  border: 4px solid rgba(var(--v-theme-on-surface), 0.1);
-  transition: all 0.5s;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.05);
 }
 
 .scan-visualizer.is-scanning {
-  border-color: rgb(var(--v-theme-success));
-  box-shadow: 0 0 30px rgba(var(--v-theme-success), 0.2);
-  animation: pulse-green 2s infinite;
-}
-
-.exposure-indicator, .recon-indicator, .finish-indicator {
-  position: absolute;
-  top: -10px;
-  color: #fff;
-  font-size: 0.65rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: bold;
-  z-index: 1;
+  background: radial-gradient(circle, rgba(var(--v-theme-success), 0.1) 0%, transparent 70%);
 }
 
 .exposure-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   background: rgb(var(--v-theme-error));
-}
-
-.recon-indicator {
-  background: rgb(var(--v-theme-primary));
-  animation: pulse-blue 1.5s infinite;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  animation: pulse-flash 1s infinite;
+  z-index: 2;
 }
 
 .finish-indicator {
-  background: rgb(var(--v-theme-success));
-}
-
-.scan-visualizer.is-reconstructing {
-  border-color: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 20px rgba(var(--v-theme-primary), 0.2);
-}
-
-@keyframes pulse-blue {
-  0% { box-shadow: 0 0 0 0 rgba(var(--v-theme-primary), 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(var(--v-theme-primary), 0); }
-  100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-primary), 0); }
-}
-
-.slice-counter {
   position: absolute;
-  bottom: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 1;
-}
-
-.slice-counter .current {
-  font-size: 2rem;
-  font-weight: bold;
-  line-height: 1;
-}
-
-.slice-counter .separator {
-  opacity: 0.2;
-}
-
-.slice-counter .total {
+  top: 12px;
+  right: 12px;
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
   font-size: 0.7rem;
-  opacity: 0.5;
+  font-weight: 800;
+  z-index: 2;
 }
 
-.progress-percent {
-  font-size: 1.5rem;
-  font-weight: 300;
-}
-
-.scan-controls {
-  flex: 1;
-  min-width: 300px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.status-banner .label {
-  font-size: 0.8rem;
-  opacity: 0.6;
-}
-
-.status-banner .value {
-  font-size: 1.2rem;
-  font-weight: bold;
-  letter-spacing: 1px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.pid-code {
-  background: rgba(var(--v-theme-on-surface), 0.05);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Consolas', monospace;
-  font-size: 0.8rem;
-  color: rgb(var(--v-theme-primary));
-}
-
-.clickable-row {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.clickable-row:hover {
-  background-color: rgba(var(--v-theme-primary), 0.05) !important;
-}
-
-.selected-row {
-  background-color: rgba(var(--v-theme-primary), 0.1) !important;
-}
-
-.protocol-details-panel {
-  background: rgba(var(--v-theme-on-surface), 0.03);
-  border: 1px solid rgba(var(--v-theme-primary), 0.1);
-  border-left: 4px solid rgb(var(--v-theme-primary));
-}
-
-.param-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  background: rgba(var(--v-theme-on-surface), 0.02);
-  border-radius: 4px;
-}
-
-.param-label {
-  font-size: 0.7rem;
-  opacity: 0.6;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.param-value {
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: rgb(var(--v-theme-primary));
-}
-
-.patient-info-banner {
-  background: rgba(var(--v-theme-primary), 0.05);
-  border-color: rgba(var(--v-theme-primary), 0.1) !important;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-label {
-  font-size: 0.65rem;
-  opacity: 0.5;
-  text-transform: uppercase;
-}
-
-.info-value {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.error-detail-text {
-  font-size: 0.75rem;
-  color: #fff;
-  background: rgba(var(--v-theme-error), 0.8);
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.fault-menu-list {
-  background: rgba(var(--v-theme-surface), 0.95);
-  backdrop-filter: blur(10px);
-}
-
-.image-preview-card {
-  background: #000;
-  border-color: #333 !important;
-}
-
-.preview-viewport {
+.progress-ring-container {
   position: relative;
-  background: #000;
 }
 
-.grayscale-ct {
-  filter: grayscale(1) contrast(1.2);
+.pulse-ring {
+  filter: drop-shadow(0 0 8px rgba(var(--v-theme-primary), 0.3));
 }
 
-.dicom-tags {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.scan-visualizer.is-scanning .pulse-ring {
+  animation: scan-pulse 2s infinite ease-in-out;
 }
 
-.tag {
-  color: #00ff00;
-  font-family: 'Consolas', monospace;
-  font-size: 0.65rem;
-  text-shadow: 1px 1px 1px #000;
+.progress-content {
+  text-align: center;
+  line-height: 1.2;
 }
 
-.tag.top-right { position: absolute; top: 8px; right: 8px; }
-.tag.bottom-right { position: absolute; bottom: 8px; right: 8px; }
-
-.recon-plan-card {
-  background: rgba(var(--v-theme-on-surface), 0.02);
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.1) !important;
+.progress-content .percent {
+  font-size: 2.5rem;
+  font-weight: 900;
 }
 
-.plan-name {
+.progress-content .slices {
   font-size: 0.8rem;
-  color: rgb(var(--v-theme-secondary));
+  opacity: 0.7;
+  font-weight: bold;
 }
 
-.mini-param {
-  font-size: 0.75rem;
-  margin-bottom: 2px;
-}
-
-.mini-param .l {
+.progress-content .label {
+  font-size: 0.6rem;
+  letter-spacing: 2px;
   opacity: 0.5;
-  margin-right: 4px;
 }
 
-@keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0.4); }
-  70% { box-shadow: 0 0 0 20px rgba(var(--v-theme-success), 0); }
-  100% { box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0); }
-}
-
-.workflow-stepper {
+/* Technical Stepper Styles */
+.technical-workflow {
   background: rgba(var(--v-theme-on-surface), 0.02);
-  border-color: rgba(var(--v-theme-on-surface), 0.1) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-.step-item {
+.step-column {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s;
+  opacity: 0.4;
+}
+
+.step-column.is-active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.step-column.is-completed {
+  opacity: 0.8;
+}
+
+.step-node {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #666;
   display: flex;
   align-items: center;
-  opacity: 0.5;
+  justify-content: center;
+  font-weight: bold;
+  border: 2px solid transparent;
   transition: all 0.3s;
 }
 
-.step-item.is-completed {
-  opacity: 1;
+.is-completed .step-node {
+  background: rgb(var(--v-theme-success));
 }
 
-.step-text {
+.is-active .step-node {
+  background: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 10px rgba(var(--v-theme-primary), 0.5);
+  border-color: white;
+}
+
+.step-index {
   font-size: 0.75rem;
-  font-weight: 600;
+  color: white;
 }
 
-.status-pulsing {
-  animation: pulse-info 2s infinite;
+.step-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
-@keyframes pulse-info {
+.is-active .step-label {
+  color: rgb(var(--v-theme-primary));
+}
+
+.step-connector {
+  flex: 1;
+  height: 1px;
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  margin-top: -24px;
+}
+
+.is-completed + .step-connector {
+  background: rgb(var(--v-theme-success));
+}
+
+/* Actions */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* History Styles */
+.history-title {
+  font-size: 0.9rem;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.history-table {
+  background: transparent !important;
+}
+
+.history-table tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.history-table tr:hover {
+  background: rgba(var(--v-theme-on-surface), 0.03) !important;
+}
+
+.active-row {
+  background: rgba(var(--v-theme-primary), 0.08) !important;
+}
+
+.history-detail-panel {
+  animation: slide-up 0.3s ease-out;
+}
+
+.detail-label {
+  font-size: 0.65rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.detail-item {
+  flex-grow: 1;
+  min-width: 120px;
+}
+
+.detail-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.op-10 { opacity: 0.1; }
+
+.recon-plan-mini-card {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
+}
+
+.mini-label {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* Animations */
+@keyframes pulse-flash {
   0% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.4; }
   100% { opacity: 1; }
 }
+
+@keyframes scan-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auto-scan-chip :deep(.v-chip__content) {
+  display: flex;
+  align-items: center;
+}
+
+.custom-mini-switch {
+  display: inline-flex;
+  height: 20px;
+}
+
+.custom-mini-switch :deep(.v-selection-control) {
+  min-height: unset;
+}
+
+.custom-mini-switch :deep(.v-switch__track) {
+  height: 14px;
+  width: 28px;
+  min-width: 28px;
+  opacity: 0.3;
+}
+
+.custom-mini-switch :deep(.v-switch__thumb) {
+  height: 10px;
+  width: 10px;
+  transform: translate(0, 0);
+}
+
+.custom-mini-switch :deep(.v-selection-control--dirty .v-switch__thumb) {
+  transform: translate(14px, 0);
+}
+
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
 </style>
